@@ -1,17 +1,19 @@
 import { create } from 'zustand';
 import { wailsBridge } from '../api/wailsBridge';
-import { Event, MessageChunkPayload, MessageCompletePayload } from '../types/events';
+import {
+  Event,
+  MessageChunkPayload,
+  ToolCallPayload,
+  StatusPayload,
+} from '../types/events';
 
-export interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  timestamp: string;
-}
+export type TimelineEntry =
+  | { id: string; type: 'message'; role: 'user' | 'assistant' | 'system'; content: string; timestamp: string }
+  | { id: string; type: 'tool'; tool: ToolCallPayload; timestamp: string };
 
 interface SessionState {
   sessionId: string;
-  messages: ChatMessage[];
+  timeline: TimelineEntry[];
   streamingMessageId: string | null;
   streamingContent: string;
   isStreaming: boolean;
@@ -22,12 +24,14 @@ interface SessionState {
   stopTask: () => Promise<void>;
   appendStreamChunk: (chunk: string) => void;
   finalizeStreaming: () => void;
+  addToolCall: (tool: ToolCallPayload) => void;
+  updateToolCall: (tool: ToolCallPayload) => void;
   handleEvent: (event: Event) => void;
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
   sessionId: `sess_${Date.now()}`,
-  messages: [],
+  timeline: [],
   streamingMessageId: null,
   streamingContent: '',
   isStreaming: false,
@@ -35,7 +39,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   initSession: (id) => {
     set({
       sessionId: id || `sess_${Date.now()}`,
-      messages: [],
+      timeline: [],
       streamingMessageId: null,
       streamingContent: '',
       isStreaming: false,
@@ -45,8 +49,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   sendPrompt: async (prompt: string) => {
     if (!prompt.trim()) return;
 
-    const userMessage: ChatMessage = {
+    const userEntry: TimelineEntry = {
       id: `msg_${Date.now()}`,
+      type: 'message',
       role: 'user',
       content: prompt.trim(),
       timestamp: new Date().toISOString(),
@@ -55,7 +60,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const streamId = `agent_${Date.now()}`;
 
     set((state) => ({
-      messages: [...state.messages, userMessage],
+      timeline: [...state.timeline, userEntry],
       streamingMessageId: streamId,
       streamingContent: '',
       isStreaming: true,
@@ -70,7 +75,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   stopTask: async () => {
-    await wailsBridge.stopTask();
+    try {
+      await wailsBridge.stopTask();
+    } catch (err) {
+      console.error('Failed to stop task:', err);
+    }
     get().finalizeStreaming();
   },
 
@@ -81,16 +90,17 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   finalizeStreaming: () => {
-    const { streamingContent, streamingMessageId, messages } = get();
+    const { streamingContent, streamingMessageId, timeline } = get();
     if (streamingMessageId && streamingContent) {
-      const assistantMessage: ChatMessage = {
+      const assistantEntry: TimelineEntry = {
         id: streamingMessageId,
+        type: 'message',
         role: 'assistant',
         content: streamingContent,
         timestamp: new Date().toISOString(),
       };
       set({
-        messages: [...messages, assistantMessage],
+        timeline: [...timeline, assistantEntry],
         streamingMessageId: null,
         streamingContent: '',
         isStreaming: false,
@@ -104,6 +114,34 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
   },
 
+  addToolCall: (tool) => {
+    set((state) => ({
+      timeline: [
+        ...state.timeline,
+        {
+          id: tool.toolId,
+          type: 'tool',
+          tool,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    }));
+  },
+
+  updateToolCall: (updated) => {
+    set((state) => ({
+      timeline: state.timeline.map((entry) => {
+        if (entry.type === 'tool' && entry.tool.toolId === updated.toolId) {
+          return {
+            ...entry,
+            tool: { ...entry.tool, ...updated },
+          };
+        }
+        return entry;
+      }),
+    }));
+  },
+
   handleEvent: (event: Event) => {
     switch (event.type) {
       case 'message_chunk': {
@@ -115,9 +153,23 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         get().finalizeStreaming();
         break;
       }
+      case 'tool_start': {
+        const payload = event.payload as ToolCallPayload;
+        get().addToolCall(payload);
+        break;
+      }
+      case 'tool_end': {
+        const payload = event.payload as ToolCallPayload;
+        get().updateToolCall(payload);
+        break;
+      }
       case 'status_change': {
-        const payload = event.payload as { status: string };
-        if (payload.status === 'done' || payload.status === 'failed' || payload.status === 'terminated') {
+        const payload = event.payload as StatusPayload;
+        if (
+          payload.status === 'done' ||
+          payload.status === 'failed' ||
+          payload.status === 'terminated'
+        ) {
           get().finalizeStreaming();
         }
         break;

@@ -3,6 +3,7 @@ package mock
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -11,18 +12,18 @@ import (
 
 // MockAdapter provides a deterministic simulation of an agent for offline UI development and testing.
 type MockAdapter struct {
-	mu           sync.Mutex
-	eventsChan   chan domain.Event
-	cancelFunc   context.CancelFunc
-	activeTask   bool
-	approvals    map[string]chan bool
-	answers      map[string]chan string
+	mu         sync.Mutex
+	eventsChan chan domain.Event
+	cancelFunc context.CancelFunc
+	activeTask bool
+	approvals  map[string]chan bool
+	answers    map[string]chan string
 }
 
 // NewMockAdapter initializes a new MockAdapter.
 func NewMockAdapter() *MockAdapter {
 	return &MockAdapter{
-		eventsChan: make(chan domain.Event, 100),
+		eventsChan: make(chan domain.Event, 200),
 		approvals:  make(map[string]chan bool),
 		answers:    make(map[string]chan string),
 	}
@@ -102,6 +103,23 @@ func (m *MockAdapter) emit(sessionID string, eventType domain.EventType, payload
 	}
 }
 
+func (m *MockAdapter) streamWords(ctx context.Context, sessionID string, text string, delay time.Duration) bool {
+	words := strings.Split(text, " ")
+	for i, word := range words {
+		select {
+		case <-ctx.Done():
+			return false
+		case <-time.After(delay):
+			chunk := word
+			if i < len(words)-1 {
+				chunk += " "
+			}
+			m.emit(sessionID, domain.EventMessageChunk, domain.MessageChunkPayload{Content: chunk})
+		}
+	}
+	return true
+}
+
 func (m *MockAdapter) simulateRun(ctx context.Context, sessionID string, projectDir string, prompt string) {
 	defer func() {
 		m.mu.Lock()
@@ -109,7 +127,7 @@ func (m *MockAdapter) simulateRun(ctx context.Context, sessionID string, project
 		m.mu.Unlock()
 	}()
 
-	// 1. Thinking
+	// 1. Thinking state
 	m.emit(sessionID, domain.EventStatusChange, domain.StatusPayload{
 		Status:  domain.StatusThinking,
 		Message: "Analyzing task...",
@@ -117,32 +135,24 @@ func (m *MockAdapter) simulateRun(ctx context.Context, sessionID string, project
 
 	select {
 	case <-ctx.Done():
-		m.emit(sessionID, domain.EventStatusChange, domain.StatusPayload{Status: domain.StatusTerminated})
+		m.emit(sessionID, domain.EventStatusChange, domain.StatusPayload{Status: domain.StatusTerminated, Message: "Stopped by user"})
 		return
-	case <-time.After(600 * time.Millisecond):
+	case <-time.After(400 * time.Millisecond):
 	}
 
-	// 2. Stream intro response
-	intro := fmt.Sprintf("I received your prompt: \"%s\". Let me inspect the project directory at `%s`.\n\n", prompt, projectDir)
-	words := []string{"I", " received", " your", " prompt.", " Let", " me", " check", " the", " local", " workspace", " structure..."}
-	_ = intro
-
+	// 2. Transition to Working state
 	m.emit(sessionID, domain.EventStatusChange, domain.StatusPayload{
 		Status:  domain.StatusWorking,
-		Message: "Streaming response...",
+		Message: "Inspecting workspace...",
 	})
 
-	for _, word := range words {
-		select {
-		case <-ctx.Done():
-			m.emit(sessionID, domain.EventStatusChange, domain.StatusPayload{Status: domain.StatusTerminated})
-			return
-		case <-time.After(80 * time.Millisecond):
-			m.emit(sessionID, domain.EventMessageChunk, domain.MessageChunkPayload{Content: word})
-		}
+	introText := fmt.Sprintf("I received your task: **\"%s\"**\n\nLet me start by inspecting the project files in `%s`.\n\n", prompt, projectDir)
+	if !m.streamWords(ctx, sessionID, introText, 35*time.Millisecond) {
+		m.emit(sessionID, domain.EventStatusChange, domain.StatusPayload{Status: domain.StatusTerminated, Message: "Stopped by user"})
+		return
 	}
 
-	// 3. Simulate tool call: ReadFile
+	// 3. Tool execution: list_files / read_file
 	toolID := fmt.Sprintf("tool_%d", time.Now().UnixNano())
 	m.emit(sessionID, domain.EventToolStart, domain.ToolCallPayload{
 		ToolID:   toolID,
@@ -155,37 +165,54 @@ func (m *MockAdapter) simulateRun(ctx context.Context, sessionID string, project
 
 	select {
 	case <-ctx.Done():
-		m.emit(sessionID, domain.EventStatusChange, domain.StatusPayload{Status: domain.StatusTerminated})
+		m.emit(sessionID, domain.EventStatusChange, domain.StatusPayload{Status: domain.StatusTerminated, Message: "Stopped by user"})
 		return
-	case <-time.After(700 * time.Millisecond):
+	case <-time.After(600 * time.Millisecond):
 	}
 
 	m.emit(sessionID, domain.EventToolEnd, domain.ToolCallPayload{
 		ToolID:   toolID,
 		ToolName: "read_file",
-		Output:   "Read 120 lines from README.md successfully.",
+		Output:   "Read 160 lines from README.md successfully.",
 		Status:   "completed",
 	})
 
-	// 4. Stream follow-up text
-	followUp := "\n\nI have read the `README.md` and verified the project setup. Ready for your next command!"
-	for _, char := range followUp {
-		select {
-		case <-ctx.Done():
-			m.emit(sessionID, domain.EventStatusChange, domain.StatusPayload{Status: domain.StatusTerminated})
-			return
-		case <-time.After(15 * time.Millisecond):
-			m.emit(sessionID, domain.EventMessageChunk, domain.MessageChunkPayload{Content: string(char)})
-		}
+	// 4. Stream response body with code snippet
+	bodyText := `Here is what I found in the workspace:
+
+- **Project:** Twill
+- **Tagline:** *"Same coding CLI agents. Better interface."*
+- **Status:** All systems ready.
+
+Here is an example snippet showing how the adapter maps events:
+
+` + "```typescript" + `
+interface AgentEvent {
+  type: 'message_chunk' | 'tool_start' | 'permission_request';
+  payload: unknown;
+}
+
+// Events are mapped to UI components in real time:
+wailsBridge.onAgentEvent((evt) => {
+  renderComponent(evt);
+});
+` + "```" + `
+
+Everything is set up and streaming is functioning smoothly!`
+
+	if !m.streamWords(ctx, sessionID, bodyText, 30*time.Millisecond) {
+		m.emit(sessionID, domain.EventStatusChange, domain.StatusPayload{Status: domain.StatusTerminated, Message: "Stopped by user"})
+		return
 	}
 
+	// 5. Complete message
 	m.emit(sessionID, domain.EventMessageComplete, domain.MessageCompletePayload{
-		Content: "Task finished.",
+		Content: "Done",
 	})
 
-	// 5. Done
+	// 6. Return to Idle / Done state
 	m.emit(sessionID, domain.EventStatusChange, domain.StatusPayload{
 		Status:  domain.StatusDone,
-		Message: "Ready",
+		Message: "Task completed",
 	})
 }

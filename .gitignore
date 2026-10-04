@@ -1,0 +1,25 @@
+# Wails & Go
+build/bin/
+*.exe
+*.test
+*.prof
+
+# Node & Frontend
+frontend/node_modules/
+frontend/dist/
+node_modules/
+.npm
+.pnpm-debug.log*
+
+# OS & Editors
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Environment & Logs
+*.log
+.env
+.env.local

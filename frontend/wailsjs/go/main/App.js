@@ -30,6 +30,10 @@ export function SendApproval(arg1, arg2, arg3) {
   return window['go']['main']['App']['SendApproval'](arg1, arg2, arg3);
 }
 
+export function SendDiffDecision(arg1, arg2) {
+  return window['go']['main']['App']['SendDiffDecision'](arg1, arg2);
+}
+
 export function SendPlanDecision(arg1, arg2, arg3) {
   return window['go']['main']['App']['SendPlanDecision'](arg1, arg2, arg3);
 }

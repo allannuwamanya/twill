@@ -8,6 +8,7 @@ import {
   QuestionPayload,
   PlanPayload,
   PermissionRequestPayload,
+  DiffPayload,
 } from '../types/events';
 
 export type TimelineEntry =
@@ -15,7 +16,8 @@ export type TimelineEntry =
   | { id: string; type: 'tool'; tool: ToolCallPayload; timestamp: string }
   | { id: string; type: 'question'; question: QuestionPayload; answered?: boolean; selectedAnswer?: string; timestamp: string }
   | { id: string; type: 'plan'; plan: PlanPayload; approved?: boolean; timestamp: string }
-  | { id: string; type: 'approval'; request: PermissionRequestPayload; resolved?: boolean; approved?: boolean; timestamp: string };
+  | { id: string; type: 'approval'; request: PermissionRequestPayload; resolved?: boolean; approved?: boolean; timestamp: string }
+  | { id: string; type: 'diff'; diff: DiffPayload; fileDecisions?: Record<string, boolean>; submitted?: boolean; timestamp: string };
 
 interface SessionState {
   sessionId: string;
@@ -38,6 +40,8 @@ interface SessionState {
   submitPlanDecision: (planId: string, approved: boolean, feedback?: string) => Promise<void>;
   addApprovalRequest: (request: PermissionRequestPayload) => void;
   resolveApproval: (requestId: string, approved: boolean, alwaysAllow?: boolean) => Promise<void>;
+  addDiff: (diff: DiffPayload) => void;
+  submitDiffReview: (diffId: string, decisions: Record<string, boolean>) => Promise<void>;
   handleEvent: (event: Event) => void;
 }
 
@@ -255,8 +259,45 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }));
   },
 
+  addDiff: (diff) => {
+    set((state) => ({
+      timeline: [
+        ...state.timeline,
+        {
+          id: diff.diffId,
+          type: 'diff',
+          diff,
+          fileDecisions: {},
+          submitted: false,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    }));
+  },
+
+  submitDiffReview: async (diffId, decisions) => {
+    await wailsBridge.sendDiffDecision(diffId, decisions);
+    set((state) => ({
+      timeline: state.timeline.map((entry) => {
+        if (entry.type === 'diff' && entry.diff.diffId === diffId) {
+          return {
+            ...entry,
+            fileDecisions: decisions,
+            submitted: true,
+          };
+        }
+        return entry;
+      }),
+    }));
+  },
+
   handleEvent: (event: Event) => {
     switch (event.type) {
+      case 'diff': {
+        const payload = event.payload as DiffPayload;
+        get().addDiff(payload);
+        break;
+      }
       case 'message_chunk': {
         const payload = event.payload as MessageChunkPayload;
         get().appendStreamChunk(payload.content);

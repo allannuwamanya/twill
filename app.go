@@ -165,6 +165,15 @@ func (a *App) SendPlanDecision(planID string, approved bool, feedback string) er
 	return active.SendPlanDecision(planID, approved, feedback)
 }
 
+// SendDiffDecision submits per-file acceptance/rejection decisions on code diffs.
+func (a *App) SendDiffDecision(diffID string, decisions map[string]bool) error {
+	active := a.registry.Active()
+	if active == nil {
+		return fmt.Errorf("no active agent adapter")
+	}
+	return active.SendDiffDecision(diffID, decisions)
+}
+
 // GetAllowedActions returns remembered allowed permissions for the given project.
 func (a *App) GetAllowedActions(projectDir string) []string {
 	if a.permissions == nil {

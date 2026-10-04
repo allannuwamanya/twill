@@ -24,6 +24,7 @@ type MockAdapter struct {
 	approvals     map[string]chan bool
 	answers       map[string]chan string
 	planDecisions map[string]chan planDecision
+	diffDecisions map[string]chan map[string]bool
 }
 
 // NewMockAdapter initializes a new MockAdapter.
@@ -33,6 +34,7 @@ func NewMockAdapter() *MockAdapter {
 		approvals:     make(map[string]chan bool),
 		answers:       make(map[string]chan string),
 		planDecisions: make(map[string]chan planDecision),
+		diffDecisions: make(map[string]chan map[string]bool),
 	}
 }
 
@@ -112,6 +114,18 @@ func (m *MockAdapter) SendPlanDecision(planID string, approved bool, feedback st
 	return fmt.Errorf("no pending plan with ID %s", planID)
 }
 
+func (m *MockAdapter) SendDiffDecision(diffID string, decisions map[string]bool) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if ch, exists := m.diffDecisions[diffID]; exists {
+		ch <- decisions
+		delete(m.diffDecisions, diffID)
+		return nil
+	}
+	return fmt.Errorf("no pending diff with ID %s", diffID)
+}
+
 func (m *MockAdapter) emit(sessionID string, eventType domain.EventType, payload interface{}) {
 	m.eventsChan <- domain.Event{
 		ID:        fmt.Sprintf("evt_%d", time.Now().UnixNano()),
@@ -174,6 +188,11 @@ func (m *MockAdapter) simulateRun(ctx context.Context, sessionID string, project
 
 	if strings.Contains(lower, "perm") || strings.Contains(lower, "bash") || strings.Contains(lower, "delete") || strings.Contains(lower, "install") {
 		m.runPermissionFlow(ctx, sessionID, projectDir, prompt)
+		return
+	}
+
+	if strings.Contains(lower, "diff") || strings.Contains(lower, "edit") || strings.Contains(lower, "code") || strings.Contains(lower, "modify") || strings.Contains(lower, "fix") || strings.Contains(lower, "component") {
+		m.runDiffFlow(ctx, sessionID, projectDir, prompt)
 		return
 	}
 
@@ -455,6 +474,122 @@ func (m *MockAdapter) runPlanFlow(ctx context.Context, sessionID string, project
 	}
 
 	m.streamWords(ctx, sessionID, "All plan steps completed successfully.", 25*time.Millisecond)
+	m.emit(sessionID, domain.EventMessageComplete, domain.MessageCompletePayload{Content: "Done"})
+	m.emit(sessionID, domain.EventStatusChange, domain.StatusPayload{Status: domain.StatusDone, Message: "Ready"})
+}
+
+func (m *MockAdapter) runDiffFlow(ctx context.Context, sessionID string, projectDir string, prompt string) {
+	m.emit(sessionID, domain.EventStatusChange, domain.StatusPayload{
+		Status:  domain.StatusWorking,
+		Message: "Applying code modifications...",
+	})
+
+	intro := fmt.Sprintf("I am generating code changes for: **\"%s\"**.\nModifying project files...\n\n", prompt)
+	if !m.streamWords(ctx, sessionID, intro, 25*time.Millisecond) {
+		return
+	}
+
+	// Tool call: edit_file
+	toolID := fmt.Sprintf("tool_%d", time.Now().UnixNano())
+	m.emit(sessionID, domain.EventToolStart, domain.ToolCallPayload{
+		ToolID:   toolID,
+		ToolName: "edit_file",
+		Input:    map[string]interface{}{"path": "src/App.tsx"},
+		Status:   "running",
+	})
+
+	time.Sleep(500 * time.Millisecond)
+
+	m.emit(sessionID, domain.EventToolEnd, domain.ToolCallPayload{
+		ToolID:   toolID,
+		ToolName: "edit_file",
+		Output:   "Applied edits to src/App.tsx and created src/utils/format.ts",
+		Status:   "completed",
+	})
+
+	diffID := fmt.Sprintf("diff_%d", time.Now().UnixNano())
+	ch := make(chan map[string]bool, 1)
+
+	m.mu.Lock()
+	m.diffDecisions[diffID] = ch
+	m.mu.Unlock()
+
+	diff1 := `--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -10,6 +10,8 @@
+ export function App() {
++  // Twill Desktop state integration
++  const [activeTab, setActiveTab] = useState<'chat' | 'diff'>('chat');
+   const { timeline } = useSessionStore();
+   return (
+-    <div className="flex flex-col">
++    <div className="flex flex-col h-screen">
+       <ProjectHeader />`
+
+	diff2 := `--- /dev/null
++++ b/src/utils/format.ts
+@@ -0,0 +1,8 @@
++export function formatFileSize(bytes: number): string {
++  if (bytes === 0) return '0 B';
++  const k = 1024;
++  const sizes = ['B', 'KB', 'MB', 'GB'];
++  const i = Math.floor(Math.log(bytes) / Math.log(k));
++  return ` + "`${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;" + `
++}`
+
+	m.emit(sessionID, domain.EventDiff, domain.DiffPayload{
+		DiffID: diffID,
+		Files: []domain.FileDiff{
+			{
+				FilePath:  "src/App.tsx",
+				Status:    "modified",
+				Additions: 3,
+				Deletions: 1,
+				DiffText:  diff1,
+			},
+			{
+				FilePath:  "src/utils/format.ts",
+				Status:    "added",
+				Additions: 8,
+				Deletions: 0,
+				DiffText:  diff2,
+			},
+		},
+	})
+
+	m.emit(sessionID, domain.EventStatusChange, domain.StatusPayload{
+		Status:  domain.StatusWaiting,
+		Message: "Waiting for code review...",
+	})
+
+	var decisions map[string]bool
+	select {
+	case <-ctx.Done():
+		m.emit(sessionID, domain.EventStatusChange, domain.StatusPayload{Status: domain.StatusTerminated})
+		return
+	case res := <-ch:
+		decisions = res
+	}
+
+	m.emit(sessionID, domain.EventStatusChange, domain.StatusPayload{Status: domain.StatusWorking, Message: "Applying review decisions..."})
+	var accepted, rejected []string
+	for file, ok := range decisions {
+		if ok {
+			accepted = append(accepted, fmt.Sprintf("`%s`", file))
+		} else {
+			rejected = append(rejected, fmt.Sprintf("`%s`", file))
+		}
+	}
+
+	summary := "\n\n📋 **Code review summary:**\n"
+	if len(accepted) > 0 {
+		summary += fmt.Sprintf("- ✅ **Accepted:** %s\n", strings.Join(accepted, ", "))
+	}
+	if len(rejected) > 0 {
+		summary += fmt.Sprintf("- ❌ **Rejected / Reverted:** %s\n", strings.Join(rejected, ", "))
+	}
+
+	m.streamWords(ctx, sessionID, summary, 25*time.Millisecond)
 	m.emit(sessionID, domain.EventMessageComplete, domain.MessageCompletePayload{Content: "Done"})
 	m.emit(sessionID, domain.EventStatusChange, domain.StatusPayload{Status: domain.StatusDone, Message: "Ready"})
 }

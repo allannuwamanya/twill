@@ -183,6 +183,17 @@ func (c *ClaudeAdapter) SendPlanDecision(planID string, approved bool, feedback 
 	return err
 }
 
+func (c *ClaudeAdapter) SendDiffDecision(diffID string, decisions map[string]bool) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.stdin == nil {
+		return fmt.Errorf("agent is not running")
+	}
+
+	return nil
+}
+
 func (c *ClaudeAdapter) emit(sessionID string, eventType domain.EventType, payload interface{}) {
 	c.eventsChan <- domain.Event{
 		ID:        fmt.Sprintf("evt_%d", time.Now().UnixNano()),

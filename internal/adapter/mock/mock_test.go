@@ -205,3 +205,52 @@ func TestMockAdapterPlanReview(t *testing.T) {
 		t.Fatalf("timed out waiting for plan review flow")
 	}
 }
+
+func TestMockAdapterDiffReview(t *testing.T) {
+	adapter := NewMockAdapter()
+	ctx := context.Background()
+
+	err := adapter.Start(ctx, "test_session_diff", "/tmp/test_project", "Please edit files and show diff")
+	if err != nil {
+		t.Fatalf("failed to start mock adapter: %v", err)
+	}
+
+	done := make(chan struct{})
+	var diffID string
+	var filesCount int
+
+	go func() {
+		for evt := range adapter.Events() {
+			if evt.Type == domain.EventDiff {
+				payload := evt.Payload.(domain.DiffPayload)
+				diffID = payload.DiffID
+				filesCount = len(payload.Files)
+				// Submit decisions: accept first, reject second
+				decisions := map[string]bool{
+					payload.Files[0].FilePath: true,
+					payload.Files[1].FilePath: false,
+				}
+				_ = adapter.SendDiffDecision(diffID, decisions)
+			}
+			if evt.Type == domain.EventStatusChange {
+				payload, ok := evt.Payload.(domain.StatusPayload)
+				if ok && payload.Status == domain.StatusDone {
+					close(done)
+					return
+				}
+			}
+		}
+	}()
+
+	select {
+	case <-done:
+		if diffID == "" {
+			t.Errorf("expected diff event, but got none")
+		}
+		if filesCount != 2 {
+			t.Errorf("expected 2 changed files in diff payload, got %d", filesCount)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatalf("timed out waiting for diff review flow")
+	}
+}

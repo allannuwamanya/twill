@@ -48,6 +48,10 @@ export const wailsBridge = {
     return AppGo.SendPlanDecision(planId, approved, feedback);
   },
 
+  sendDiffDecision: async (diffId: string, decisions: Record<string, boolean>): Promise<void> => {
+    return AppGo.SendDiffDecision(diffId, decisions);
+  },
+
   getAllowedActions: async (projectDir: string): Promise<string[]> => {
     try {
       return await AppGo.GetAllowedActions(projectDir);

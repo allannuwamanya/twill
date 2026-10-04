@@ -104,11 +104,13 @@ type PlanPayload struct {
 
 // FileDiff represents changes to a single file.
 type FileDiff struct {
-	FilePath string `json:"filePath"`
-	OldPath  string `json:"oldPath,omitempty"`
-	NewPath  string `json:"newPath,omitempty"`
-	Status   string `json:"status"` // modified, added, deleted
-	DiffText string `json:"diffText"`
+	FilePath  string `json:"filePath"`
+	OldPath   string `json:"oldPath,omitempty"`
+	NewPath   string `json:"newPath,omitempty"`
+	Status    string `json:"status"` // modified, added, deleted
+	Additions int    `json:"additions"`
+	Deletions int    `json:"deletions"`
+	DiffText  string `json:"diffText"`
 }
 
 // DiffPayload carries one or more file diffs for code review.

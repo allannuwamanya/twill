@@ -15,6 +15,8 @@ export function SendAnswer(arg1:string,arg2:string):Promise<void>;
 
 export function SendApproval(arg1:string,arg2:boolean,arg3:boolean):Promise<void>;
 
+export function SendDiffDecision(arg1:string,arg2:Record<string, boolean>):Promise<void>;
+
 export function SendPlanDecision(arg1:string,arg2:boolean,arg3:string):Promise<void>;
 
 export function SetActiveAdapter(arg1:string):Promise<void>;

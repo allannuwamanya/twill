@@ -28,6 +28,9 @@ type AgentAdapter interface {
 	// SendPlanDecision submits the user's review decision for a proposed plan.
 	SendPlanDecision(planID string, approved bool, feedback string) error
 
+	// SendDiffDecision submits per-file accept/reject choices for code changes.
+	SendDiffDecision(diffID string, decisions map[string]bool) error
+
 	// Events returns a receive-only channel yielding normalized domain events.
 	Events() <-chan Event
 }

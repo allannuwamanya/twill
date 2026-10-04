@@ -6,6 +6,7 @@ import { ActivityCard } from './features/activity/components/ActivityCard';
 import { ApprovalDialog } from './features/approvals/components/ApprovalDialog';
 import { QuestionPrompt } from './features/approvals/components/QuestionPrompt';
 import { PlanReview } from './features/approvals/components/PlanReview';
+import { DiffReviewCard } from './features/diff/components/DiffReviewCard';
 import { useSessionStore } from './stores/useSessionStore';
 import { useAgentStore } from './stores/useAgentStore';
 import { useProjectStore } from './stores/useProjectStore';
@@ -101,6 +102,16 @@ export function App() {
                     key={entry.id}
                     plan={entry.plan}
                     approved={entry.approved}
+                  />
+                );
+              }
+              if (entry.type === 'diff') {
+                return (
+                  <DiffReviewCard
+                    key={entry.id}
+                    diff={entry.diff}
+                    fileDecisions={entry.fileDecisions}
+                    submitted={entry.submitted}
                   />
                 );
               }

@@ -85,6 +85,8 @@ export interface FileDiff {
   oldPath?: string;
   newPath?: string;
   status: 'modified' | 'added' | 'deleted';
+  additions?: number;
+  deletions?: number;
   diffText: string;
 }
 

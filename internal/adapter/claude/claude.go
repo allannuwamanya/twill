@@ -3,9 +3,11 @@ package claude
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
@@ -22,6 +24,8 @@ type ClaudeAdapter struct {
 	cancelFunc context.CancelFunc
 	activeTask bool
 	cliPath    string
+	// pending maps permission request IDs to the tool input to echo back on approval.
+	pending map[string]map[string]interface{}
 }
 
 // NewClaudeAdapter initializes a new ClaudeAdapter.
@@ -73,9 +77,15 @@ func (c *ClaudeAdapter) Start(parentCtx context.Context, sessionID string, proje
 	c.cancelFunc = cancel
 	c.activeTask = true
 
-	// Spawns claude in headless/json streaming mode
-	// (Flags to be tuned based on Claude Code CLI specifications: e.g. claude --print / json stream)
-	cmd := exec.CommandContext(ctx, cliPath, "-p", prompt)
+	// Headless structured streaming; permission prompts are routed to us over stdio.
+	cmd := exec.CommandContext(ctx, cliPath,
+		"-p",
+		"--verbose",
+		"--output-format=stream-json",
+		"--input-format=stream-json",
+		"--include-partial-messages",
+		"--permission-prompt-tool=stdio",
+	)
 	cmd.Dir = projectDir
 
 	stdin, err := cmd.StdinPipe()
@@ -106,6 +116,11 @@ func (c *ClaudeAdapter) Start(parentCtx context.Context, sessionID string, proje
 		return fmt.Errorf("failed to start claude process: %w", err)
 	}
 	c.cmd = cmd
+	c.pending = map[string]map[string]interface{}{}
+	if err := c.writeJSON(userMessage(prompt)); err != nil {
+		c.mu.Unlock()
+		return fmt.Errorf("failed to send prompt: %w", err)
+	}
 	c.mu.Unlock()
 
 	// Read stdout stream concurrently
@@ -137,61 +152,61 @@ func (c *ClaudeAdapter) SendApproval(requestID string, approved bool, alwaysAllo
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.stdin == nil {
-		return fmt.Errorf("agent is not running")
-	}
+	input := c.pending[requestID]
+	delete(c.pending, requestID)
 
-	var answer string
+	var decision map[string]interface{}
 	if approved {
-		answer = "y\n"
+		if input == nil {
+			input = map[string]interface{}{}
+		}
+		decision = map[string]interface{}{"behavior": "allow", "updatedInput": input}
 	} else {
-		answer = "n\n"
+		decision = map[string]interface{}{"behavior": "deny", "message": "The user denied this action in Twill."}
 	}
-	_, err := io.WriteString(c.stdin, answer)
-	return err
+	return c.writeJSON(map[string]interface{}{
+		"type": "control_response",
+		"response": map[string]interface{}{
+			"subtype":    "success",
+			"request_id": requestID,
+			"response":   decision,
+		},
+	})
 }
 
 func (c *ClaudeAdapter) SendAnswer(questionID string, answer string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
-	if c.stdin == nil {
-		return fmt.Errorf("agent is not running")
-	}
-
-	_, err := io.WriteString(c.stdin, answer+"\n")
-	return err
+	return c.writeJSON(userMessage(answer))
 }
 
 func (c *ClaudeAdapter) SendPlanDecision(planID string, approved bool, feedback string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.stdin == nil {
-		return fmt.Errorf("agent is not running")
-	}
-
-	var answer string
+	text := "Plan rejected."
 	if approved {
-		answer = "y\n"
+		text = "Plan approved. Please proceed."
 	} else if feedback != "" {
-		answer = feedback + "\n"
-	} else {
-		answer = "n\n"
+		text = feedback
 	}
-	_, err := io.WriteString(c.stdin, answer)
-	return err
+	return c.writeJSON(userMessage(text))
 }
 
 func (c *ClaudeAdapter) SendDiffDecision(diffID string, decisions map[string]bool) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.stdin == nil {
-		return fmt.Errorf("agent is not running")
+	var rejected []string
+	for path, ok := range decisions {
+		if !ok {
+			rejected = append(rejected, path)
+		}
 	}
-
-	return nil
+	if len(rejected) == 0 {
+		return nil
+	}
+	return c.writeJSON(userMessage("The user rejected your changes to: " + strings.Join(rejected, ", ") + ". Please revert them."))
 }
 
 func (c *ClaudeAdapter) emit(sessionID string, eventType domain.EventType, payload interface{}) {
@@ -206,12 +221,57 @@ func (c *ClaudeAdapter) emit(sessionID string, eventType domain.EventType, paylo
 
 func (c *ClaudeAdapter) readStream(sessionID string, stdout io.Reader) {
 	scanner := bufio.NewScanner(stdout)
+	scanner.Buffer(make([]byte, 64*1024), 16*1024*1024)
 	for scanner.Scan() {
-		line := scanner.Text()
-		// Emit line chunk (future: parse structured JSON stream)
-		c.emit(sessionID, domain.EventMessageChunk, domain.MessageChunkPayload{
-			Content: line + "\n",
-		})
+		res, err := ParseLine(scanner.Text())
+		if err != nil {
+			continue
+		}
+		if res.PermissionRequestID != "" {
+			c.mu.Lock()
+			if c.pending == nil {
+				c.pending = map[string]map[string]interface{}{}
+			}
+			c.pending[res.PermissionRequestID] = res.PermissionInput
+			c.mu.Unlock()
+		}
+		for _, ev := range res.Events {
+			c.emit(sessionID, ev.Type, ev.Payload)
+		}
+		if res.Finished {
+			// Turn finished: close stdin so the CLI exits cleanly.
+			c.mu.Lock()
+			if c.stdin != nil {
+				_ = c.stdin.Close()
+				c.stdin = nil
+			}
+			c.mu.Unlock()
+		}
+	}
+}
+
+// writeJSON writes one newline-terminated JSON message to the CLI's stdin.
+// Caller must hold c.mu.
+func (c *ClaudeAdapter) writeJSON(v interface{}) error {
+	if c.stdin == nil {
+		return fmt.Errorf("agent is not running")
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	_, err = c.stdin.Write(append(b, '\n'))
+	return err
+}
+
+// userMessage builds a stream-json user message.
+func userMessage(text string) map[string]interface{} {
+	return map[string]interface{}{
+		"type": "user",
+		"message": map[string]interface{}{
+			"role":    "user",
+			"content": text,
+		},
 	}
 }
 
@@ -227,15 +287,22 @@ func (c *ClaudeAdapter) readErrors(sessionID string, stderr io.Reader) {
 }
 
 func (c *ClaudeAdapter) waitForExit(sessionID string) {
+	var err error
 	if c.cmd != nil {
-		_ = c.cmd.Wait()
+		err = c.cmd.Wait()
 	}
 	c.mu.Lock()
+	wasActive := c.activeTask
 	c.activeTask = false
+	c.stdin = nil
 	c.mu.Unlock()
 
-	c.emit(sessionID, domain.EventStatusChange, domain.StatusPayload{
-		Status:  domain.StatusDone,
-		Message: "Process exited",
-	})
+	// A normal turn already emitted done/failed from the result line.
+	// Only report an exit that happened without one (crash; Stop clears activeTask first).
+	if wasActive && err != nil {
+		c.emit(sessionID, domain.EventStatusChange, domain.StatusPayload{
+			Status:  domain.StatusFailed,
+			Message: "Claude process exited: " + err.Error(),
+		})
+	}
 }

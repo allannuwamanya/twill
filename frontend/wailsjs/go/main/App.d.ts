@@ -3,6 +3,8 @@
 
 export function GetActiveAdapter():Promise<string>;
 
+export function GetAllowedActions(arg1:string):Promise<Array<string>>;
+
 export function GetProjectDirectory():Promise<string>;
 
 export function ListAdapters():Promise<Array<Record<string, string>>>;
@@ -12,6 +14,8 @@ export function SelectProjectDirectory():Promise<string>;
 export function SendAnswer(arg1:string,arg2:string):Promise<void>;
 
 export function SendApproval(arg1:string,arg2:boolean,arg3:boolean):Promise<void>;
+
+export function SendPlanDecision(arg1:string,arg2:boolean,arg3:string):Promise<void>;
 
 export function SetActiveAdapter(arg1:string):Promise<void>;
 

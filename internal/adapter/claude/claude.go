@@ -163,6 +163,26 @@ func (c *ClaudeAdapter) SendAnswer(questionID string, answer string) error {
 	return err
 }
 
+func (c *ClaudeAdapter) SendPlanDecision(planID string, approved bool, feedback string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.stdin == nil {
+		return fmt.Errorf("agent is not running")
+	}
+
+	var answer string
+	if approved {
+		answer = "y\n"
+	} else if feedback != "" {
+		answer = feedback + "\n"
+	} else {
+		answer = "n\n"
+	}
+	_, err := io.WriteString(c.stdin, answer)
+	return err
+}
+
 func (c *ClaudeAdapter) emit(sessionID string, eventType domain.EventType, payload interface{}) {
 	c.eventsChan <- domain.Event{
 		ID:        fmt.Sprintf("evt_%d", time.Now().UnixNano()),

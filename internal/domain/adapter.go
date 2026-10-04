@@ -25,6 +25,9 @@ type AgentAdapter interface {
 	// SendAnswer submits the user's answer to a pending question.
 	SendAnswer(questionID string, answer string) error
 
+	// SendPlanDecision submits the user's review decision for a proposed plan.
+	SendPlanDecision(planID string, approved bool, feedback string) error
+
 	// Events returns a receive-only channel yielding normalized domain events.
 	Events() <-chan Event
 }

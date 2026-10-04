@@ -16,11 +16,12 @@ import (
 
 // App coordinates Wails frontend events with Go backend domain services.
 type App struct {
-	ctx        context.Context
-	registry   *adapter.Registry
-	store      domain.SessionRepository
-	projectDir string
-	mu         sync.RWMutex
+	ctx         context.Context
+	registry    *adapter.Registry
+	store       domain.SessionRepository
+	permissions *domain.PermissionStore
+	projectDir  string
+	mu          sync.RWMutex
 }
 
 // NewApp creates a new App application struct.
@@ -29,10 +30,12 @@ func NewApp() *App {
 
 	reg := adapter.NewRegistry()
 	store, _ := jsonstore.NewFileStore()
+	permStore, _ := domain.NewPermissionStore()
 
 	return &App{
-		registry: reg,
-		store:    store,
+		registry:    reg,
+		store:       store,
+		permissions: permStore,
 	}
 }
 
@@ -131,6 +134,16 @@ func (a *App) SendApproval(requestID string, approved bool, alwaysAllow bool) er
 	if active == nil {
 		return fmt.Errorf("no active agent adapter")
 	}
+
+	if alwaysAllow && a.permissions != nil {
+		a.mu.RLock()
+		dir := a.projectDir
+		a.mu.RUnlock()
+		if dir != "" {
+			_ = a.permissions.AllowAction(dir, requestID)
+		}
+	}
+
 	return active.SendApproval(requestID, approved, alwaysAllow)
 }
 
@@ -141,6 +154,23 @@ func (a *App) SendAnswer(questionID string, answer string) error {
 		return fmt.Errorf("no active agent adapter")
 	}
 	return active.SendAnswer(questionID, answer)
+}
+
+// SendPlanDecision submits a user review decision on an agent's plan.
+func (a *App) SendPlanDecision(planID string, approved bool, feedback string) error {
+	active := a.registry.Active()
+	if active == nil {
+		return fmt.Errorf("no active agent adapter")
+	}
+	return active.SendPlanDecision(planID, approved, feedback)
+}
+
+// GetAllowedActions returns remembered allowed permissions for the given project.
+func (a *App) GetAllowedActions(projectDir string) []string {
+	if a.permissions == nil {
+		return nil
+	}
+	return a.permissions.GetAllowedActions(projectDir)
 }
 
 // ListAdapters returns all available adapters.

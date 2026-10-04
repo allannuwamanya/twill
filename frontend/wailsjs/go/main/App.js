@@ -6,6 +6,10 @@ export function GetActiveAdapter() {
   return window['go']['main']['App']['GetActiveAdapter']();
 }
 
+export function GetAllowedActions(arg1) {
+  return window['go']['main']['App']['GetAllowedActions'](arg1);
+}
+
 export function GetProjectDirectory() {
   return window['go']['main']['App']['GetProjectDirectory']();
 }
@@ -24,6 +28,10 @@ export function SendAnswer(arg1, arg2) {
 
 export function SendApproval(arg1, arg2, arg3) {
   return window['go']['main']['App']['SendApproval'](arg1, arg2, arg3);
+}
+
+export function SendPlanDecision(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SendPlanDecision'](arg1, arg2, arg3);
 }
 
 export function SetActiveAdapter(arg1) {

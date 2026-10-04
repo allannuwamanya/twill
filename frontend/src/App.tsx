@@ -4,11 +4,13 @@ import { ChatBubble } from './features/chat/components/ChatBubble';
 import { ChatInput } from './features/chat/components/ChatInput';
 import { ActivityCard } from './features/activity/components/ActivityCard';
 import { ApprovalDialog } from './features/approvals/components/ApprovalDialog';
+import { QuestionPrompt } from './features/approvals/components/QuestionPrompt';
+import { PlanReview } from './features/approvals/components/PlanReview';
 import { useSessionStore } from './stores/useSessionStore';
 import { useAgentStore } from './stores/useAgentStore';
 import { useProjectStore } from './stores/useProjectStore';
 import { wailsBridge } from './api/wailsBridge';
-import { Code2, ArrowDown } from 'lucide-react';
+import { Code2 } from 'lucide-react';
 
 export function App() {
   const {
@@ -82,6 +84,25 @@ export function App() {
               }
               if (entry.type === 'tool') {
                 return <ActivityCard key={entry.id} tool={entry.tool} />;
+              }
+              if (entry.type === 'question') {
+                return (
+                  <QuestionPrompt
+                    key={entry.id}
+                    question={entry.question}
+                    answered={entry.answered}
+                    selectedAnswer={entry.selectedAnswer}
+                  />
+                );
+              }
+              if (entry.type === 'plan') {
+                return (
+                  <PlanReview
+                    key={entry.id}
+                    plan={entry.plan}
+                    approved={entry.approved}
+                  />
+                );
               }
               return null;
             })}

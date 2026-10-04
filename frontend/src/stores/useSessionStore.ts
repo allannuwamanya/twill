@@ -5,11 +5,17 @@ import {
   MessageChunkPayload,
   ToolCallPayload,
   StatusPayload,
+  QuestionPayload,
+  PlanPayload,
+  PermissionRequestPayload,
 } from '../types/events';
 
 export type TimelineEntry =
   | { id: string; type: 'message'; role: 'user' | 'assistant' | 'system'; content: string; timestamp: string }
-  | { id: string; type: 'tool'; tool: ToolCallPayload; timestamp: string };
+  | { id: string; type: 'tool'; tool: ToolCallPayload; timestamp: string }
+  | { id: string; type: 'question'; question: QuestionPayload; answered?: boolean; selectedAnswer?: string; timestamp: string }
+  | { id: string; type: 'plan'; plan: PlanPayload; approved?: boolean; timestamp: string }
+  | { id: string; type: 'approval'; request: PermissionRequestPayload; resolved?: boolean; approved?: boolean; timestamp: string };
 
 interface SessionState {
   sessionId: string;
@@ -26,6 +32,12 @@ interface SessionState {
   finalizeStreaming: () => void;
   addToolCall: (tool: ToolCallPayload) => void;
   updateToolCall: (tool: ToolCallPayload) => void;
+  addQuestion: (question: QuestionPayload) => void;
+  answerQuestion: (questionId: string, answer: string) => Promise<void>;
+  addOrUpdatePlan: (plan: PlanPayload) => void;
+  submitPlanDecision: (planId: string, approved: boolean, feedback?: string) => Promise<void>;
+  addApprovalRequest: (request: PermissionRequestPayload) => void;
+  resolveApproval: (requestId: string, approved: boolean, alwaysAllow?: boolean) => Promise<void>;
   handleEvent: (event: Event) => void;
 }
 
@@ -142,6 +154,107 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }));
   },
 
+  addQuestion: (question) => {
+    set((state) => ({
+      timeline: [
+        ...state.timeline,
+        {
+          id: question.questionId,
+          type: 'question',
+          question,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    }));
+  },
+
+  answerQuestion: async (questionId, answer) => {
+    await wailsBridge.sendAnswer(questionId, answer);
+    set((state) => ({
+      timeline: state.timeline.map((entry) => {
+        if (entry.type === 'question' && entry.question.questionId === questionId) {
+          return {
+            ...entry,
+            answered: true,
+            selectedAnswer: answer,
+          };
+        }
+        return entry;
+      }),
+    }));
+  },
+
+  addOrUpdatePlan: (plan) => {
+    set((state) => {
+      const exists = state.timeline.some(
+        (entry) => entry.type === 'plan' && entry.plan.planId === plan.planId
+      );
+      if (exists) {
+        return {
+          timeline: state.timeline.map((entry) => {
+            if (entry.type === 'plan' && entry.plan.planId === plan.planId) {
+              return { ...entry, plan };
+            }
+            return entry;
+          }),
+        };
+      }
+      return {
+        timeline: [
+          ...state.timeline,
+          {
+            id: plan.planId,
+            type: 'plan',
+            plan,
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      };
+    });
+  },
+
+  submitPlanDecision: async (planId, approved, feedback = '') => {
+    await wailsBridge.sendPlanDecision(planId, approved, feedback);
+    set((state) => ({
+      timeline: state.timeline.map((entry) => {
+        if (entry.type === 'plan' && entry.plan.planId === planId) {
+          return { ...entry, approved };
+        }
+        return entry;
+      }),
+    }));
+  },
+
+  addApprovalRequest: (request) => {
+    set((state) => ({
+      timeline: [
+        ...state.timeline,
+        {
+          id: request.requestId,
+          type: 'approval',
+          request,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    }));
+  },
+
+  resolveApproval: async (requestId, approved, alwaysAllow = false) => {
+    await wailsBridge.sendApproval(requestId, approved, alwaysAllow);
+    set((state) => ({
+      timeline: state.timeline.map((entry) => {
+        if (entry.type === 'approval' && entry.request.requestId === requestId) {
+          return {
+            ...entry,
+            resolved: true,
+            approved,
+          };
+        }
+        return entry;
+      }),
+    }));
+  },
+
   handleEvent: (event: Event) => {
     switch (event.type) {
       case 'message_chunk': {
@@ -161,6 +274,21 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       case 'tool_end': {
         const payload = event.payload as ToolCallPayload;
         get().updateToolCall(payload);
+        break;
+      }
+      case 'question': {
+        const payload = event.payload as QuestionPayload;
+        get().addQuestion(payload);
+        break;
+      }
+      case 'plan': {
+        const payload = event.payload as PlanPayload;
+        get().addOrUpdatePlan(payload);
+        break;
+      }
+      case 'permission_request': {
+        const payload = event.payload as PermissionRequestPayload;
+        get().addApprovalRequest(payload);
         break;
       }
       case 'status_change': {

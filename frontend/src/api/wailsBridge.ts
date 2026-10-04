@@ -44,6 +44,18 @@ export const wailsBridge = {
     return AppGo.SendAnswer(questionId, answer);
   },
 
+  sendPlanDecision: async (planId: string, approved: boolean, feedback: string = ''): Promise<void> => {
+    return AppGo.SendPlanDecision(planId, approved, feedback);
+  },
+
+  getAllowedActions: async (projectDir: string): Promise<string[]> => {
+    try {
+      return await AppGo.GetAllowedActions(projectDir);
+    } catch {
+      return [];
+    }
+  },
+
   // Adapters
   listAdapters: async (): Promise<Array<Record<string, string>>> => {
     try {

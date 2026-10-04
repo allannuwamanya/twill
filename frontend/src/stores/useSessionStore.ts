@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { wailsBridge } from '../api/wailsBridge';
+import { useProjectStore } from './useProjectStore';
 import {
   Event,
   MessageChunkPayload,
@@ -19,14 +20,22 @@ export type TimelineEntry =
   | { id: string; type: 'approval'; request: PermissionRequestPayload; resolved?: boolean; approved?: boolean; timestamp: string }
   | { id: string; type: 'diff'; diff: DiffPayload; fileDecisions?: Record<string, boolean>; submitted?: boolean; timestamp: string };
 
+// Last timeline reference written to disk (or loaded from it); avoids redundant saves.
+let lastPersisted: TimelineEntry[] | null = null;
+
 interface SessionState {
   sessionId: string;
+  title: string;
+  /** Project directory this session belongs to ('' until the first prompt). */
+  sessionProjectDir: string;
   timeline: TimelineEntry[];
   streamingMessageId: string | null;
   streamingContent: string;
   isStreaming: boolean;
 
   // Actions
+  persist: () => Promise<void>;
+  loadSession: (id: string) => Promise<void>;
   initSession: (sessionId?: string) => void;
   sendPrompt: (prompt: string) => Promise<void>;
   stopTask: () => Promise<void>;
@@ -47,14 +56,19 @@ interface SessionState {
 
 export const useSessionStore = create<SessionState>((set, get) => ({
   sessionId: `sess_${Date.now()}`,
+  title: '',
+  sessionProjectDir: '',
   timeline: [],
   streamingMessageId: null,
   streamingContent: '',
   isStreaming: false,
 
   initSession: (id) => {
+    lastPersisted = null;
     set({
       sessionId: id || `sess_${Date.now()}`,
+      title: '',
+      sessionProjectDir: '',
       timeline: [],
       streamingMessageId: null,
       streamingContent: '',
@@ -80,6 +94,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       streamingMessageId: streamId,
       streamingContent: '',
       isStreaming: true,
+      sessionProjectDir: state.sessionProjectDir || useProjectStore.getState().projectDir,
     }));
 
     try {
@@ -289,6 +304,61 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         return entry;
       }),
     }));
+  },
+
+  persist: async () => {
+    const { sessionId, timeline, title } = get();
+    // Skip empty sessions and unchanged (e.g. just-loaded) timelines.
+    if (!timeline.length || timeline === lastPersisted) return;
+
+    let nextTitle = title;
+    if (!nextTitle) {
+      const first = timeline.find((e) => e.type === 'message' && e.role === 'user');
+      if (first && first.type === 'message') {
+        nextTitle = first.content.replace(/\s+/g, ' ').trim().slice(0, 60);
+        set({ title: nextTitle });
+      }
+    }
+
+    const messageCount = timeline.filter((e) => e.type === 'message').length;
+    try {
+      await wailsBridge.saveSession(sessionId, nextTitle, messageCount, JSON.stringify(timeline));
+      lastPersisted = timeline;
+    } catch (err) {
+      console.error('Failed to save session:', err);
+    }
+  },
+
+  loadSession: async (id: string) => {
+    const saved = await wailsBridge.loadSession(id);
+
+    let restored: TimelineEntry[] = [];
+    try {
+      restored = saved.timeline ? (JSON.parse(saved.timeline) as TimelineEntry[]) : [];
+    } catch (err) {
+      console.error('Corrupt timeline in session', id, err);
+    }
+
+    // The agent process that owned these prompts is gone; make them inert.
+    restored = restored.map((entry) => {
+      if (entry.type === 'approval' && !entry.resolved) return { ...entry, resolved: true, approved: false };
+      if (entry.type === 'question' && !entry.answered) return { ...entry, answered: true };
+      if (entry.type === 'tool' && entry.tool.status === 'running') {
+        return { ...entry, tool: { ...entry.tool, status: 'failed' } };
+      }
+      return entry;
+    });
+
+    lastPersisted = restored;
+    set({
+      sessionId: saved.id,
+      title: saved.title || '',
+      sessionProjectDir: saved.projectDir || '',
+      timeline: restored,
+      streamingMessageId: null,
+      streamingContent: '',
+      isStreaming: false,
+    });
   },
 
   handleEvent: (event: Event) => {

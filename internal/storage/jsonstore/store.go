@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 
 	"twill/internal/domain"
@@ -36,11 +37,16 @@ func NewFileStore(customDir ...string) (*FileStore, error) {
 	return &FileStore{baseDir: dir}, nil
 }
 
+// filePath maps an ID to a file inside baseDir; filepath.Base blocks path traversal.
 func (s *FileStore) filePath(id string) string {
-	return filepath.Join(s.baseDir, fmt.Sprintf("%s.json", id))
+	return filepath.Join(s.baseDir, fmt.Sprintf("%s.json", filepath.Base(id)))
 }
 
+// Save writes atomically (temp file + rename) so a crash never leaves a corrupt session.
 func (s *FileStore) Save(session *domain.Session) error {
+	if session.ID == "" {
+		return fmt.Errorf("session id is required")
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -49,7 +55,12 @@ func (s *FileStore) Save(session *domain.Session) error {
 		return err
 	}
 
-	return os.WriteFile(s.filePath(session.ID), data, 0644)
+	path := s.filePath(session.ID)
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
 }
 
 func (s *FileStore) Get(id string) (*domain.Session, error) {
@@ -96,6 +107,10 @@ func (s *FileStore) List(projectDir string) ([]*domain.Session, error) {
 			}
 		}
 	}
+
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].UpdatedAt.After(results[j].UpdatedAt)
+	})
 
 	return results, nil
 }

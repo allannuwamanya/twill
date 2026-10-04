@@ -70,7 +70,7 @@ func ParseLine(line string) (ParseResult, error) {
 		if raw.Subtype == "init" {
 			res.ClaudeSessionID = raw.SessionID
 			res.Events = append(res.Events, ParsedEvent{domain.EventStatusChange,
-				domain.StatusPayload{Status: domain.StatusThinking, Message: "Session started"}})
+				domain.StatusPayload{Status: domain.StatusThinking, Message: "Session started", AgentSessionID: raw.SessionID}})
 		}
 	case "stream_event":
 		var ev struct {

@@ -21,7 +21,9 @@ type App struct {
 	store       domain.SessionRepository
 	permissions *domain.PermissionStore
 	projectDir  string
-	mu          sync.RWMutex
+	// agentSessions maps Twill session ID -> underlying agent session ID (for resume).
+	agentSessions map[string]string
+	mu            sync.RWMutex
 }
 
 // NewApp creates a new App application struct.
@@ -33,9 +35,10 @@ func NewApp() *App {
 	permStore, _ := domain.NewPermissionStore()
 
 	return &App{
-		registry:    reg,
-		store:       store,
-		permissions: permStore,
+		registry:      reg,
+		store:         store,
+		permissions:   permStore,
+		agentSessions: map[string]string{},
 	}
 }
 
@@ -62,6 +65,11 @@ func (a *App) listenToAdapterEvents() {
 			if !ok {
 				time.Sleep(100 * time.Millisecond)
 				continue
+			}
+			if sp, ok := evt.Payload.(domain.StatusPayload); ok && sp.AgentSessionID != "" {
+				a.mu.Lock()
+				a.agentSessions[evt.SessionID] = sp.AgentSessionID
+				a.mu.Unlock()
 			}
 			if a.ctx != nil {
 				runtime.EventsEmit(a.ctx, "agent:event", evt)
@@ -114,6 +122,13 @@ func (a *App) StartTask(sessionID string, prompt string) error {
 	active := a.registry.Active()
 	if active == nil {
 		return fmt.Errorf("no active agent adapter configured")
+	}
+
+	a.mu.RLock()
+	agentID := a.agentSessions[sessionID]
+	a.mu.RUnlock()
+	if r, ok := active.(resumable); ok {
+		r.SetResumeID(agentID)
 	}
 
 	return active.Start(a.ctx, sessionID, dir, prompt)
@@ -195,4 +210,97 @@ func (a *App) SetActiveAdapter(id string) error {
 // GetActiveAdapter returns the current active adapter ID.
 func (a *App) GetActiveAdapter() string {
 	return a.registry.Active().ID()
+}
+
+// resumable is implemented by adapters that can continue a prior agent session.
+type resumable interface {
+	SetResumeID(id string)
+}
+
+// SaveSession persists the UI timeline for a session plus the agent's own session ID.
+func (a *App) SaveSession(id string, title string, messageCount int, timelineJSON string) error {
+	if a.store == nil {
+		return fmt.Errorf("session storage unavailable")
+	}
+	if id == "" {
+		return fmt.Errorf("session id is required")
+	}
+
+	a.mu.RLock()
+	dir := a.projectDir
+	agentID := a.agentSessions[id]
+	a.mu.RUnlock()
+
+	now := time.Now()
+	sess, err := a.store.Get(id)
+	if err != nil {
+		sess = &domain.Session{ID: id, CreatedAt: now}
+	}
+	sess.ProjectDir = dir
+	if title != "" {
+		sess.Title = title
+	}
+	sess.UpdatedAt = now
+	sess.Timeline = timelineJSON
+	if agentID != "" {
+		sess.AgentSessionID = agentID
+	}
+	if active := a.registry.Active(); active != nil {
+		sess.AdapterID = active.ID()
+	}
+	// Messages is kept as a lightweight count placeholder for summaries.
+	sess.Messages = make([]domain.Message, messageCount)
+	return a.store.Save(sess)
+}
+
+// ListSessions returns saved sessions for the current project (all projects if none selected), newest first.
+func (a *App) ListSessions() ([]domain.SessionSummary, error) {
+	if a.store == nil {
+		return nil, nil
+	}
+	a.mu.RLock()
+	dir := a.projectDir
+	a.mu.RUnlock()
+
+	sessions, err := a.store.List(dir)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.SessionSummary, 0, len(sessions))
+	for _, s := range sessions {
+		out = append(out, s.Summary())
+	}
+	return out, nil
+}
+
+// LoadSession returns a saved session, switches the active project to it and
+// primes the agent adapter to resume its prior context.
+func (a *App) LoadSession(id string) (*domain.Session, error) {
+	if a.store == nil {
+		return nil, fmt.Errorf("session storage unavailable")
+	}
+	sess, err := a.store.Get(id)
+	if err != nil {
+		return nil, err
+	}
+	a.mu.Lock()
+	if sess.ProjectDir != "" {
+		a.projectDir = sess.ProjectDir
+	}
+	if sess.AgentSessionID != "" {
+		a.agentSessions[id] = sess.AgentSessionID
+	}
+	a.mu.Unlock()
+	return sess, nil
+}
+
+// DeleteSession removes a saved session from disk.
+func (a *App) DeleteSession(id string) error {
+	if a.store == nil {
+		return fmt.Errorf("session storage unavailable")
+	}
+	a.mu.Lock()
+	delete(a.agentSessions, id)
+	a.mu.Unlock()
+	return a.store.Delete(id)
 }

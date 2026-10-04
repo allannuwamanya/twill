@@ -1,6 +1,7 @@
 import * as AppGo from '../../wailsjs/go/main/App';
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 import { Event } from '../types/events';
+import { SessionSummary, SavedSession } from '../types/session';
 
 // wailsBridge isolates Wails runtime interaction from the rest of the UI.
 export const wailsBridge = {
@@ -58,6 +59,28 @@ export const wailsBridge = {
     } catch {
       return [];
     }
+  },
+
+  // Session history & persistence
+  saveSession: async (id: string, title: string, messageCount: number, timelineJson: string): Promise<void> => {
+    return AppGo.SaveSession(id, title, messageCount, timelineJson);
+  },
+
+  listSessions: async (): Promise<SessionSummary[]> => {
+    try {
+      return ((await AppGo.ListSessions()) || []) as unknown as SessionSummary[];
+    } catch (err) {
+      console.error('Failed to list sessions:', err);
+      return [];
+    }
+  },
+
+  loadSession: async (id: string): Promise<SavedSession> => {
+    return (await AppGo.LoadSession(id)) as unknown as SavedSession;
+  },
+
+  deleteSession: async (id: string): Promise<void> => {
+    return AppGo.DeleteSession(id);
   },
 
   // Adapters

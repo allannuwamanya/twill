@@ -45,6 +45,9 @@ type Event struct {
 type StatusPayload struct {
 	Status  AgentStatus `json:"status"`
 	Message string      `json:"message,omitempty"`
+	// AgentSessionID carries the underlying agent's own session ID (set once on startup)
+	// so Twill can resume that agent's context later.
+	AgentSessionID string `json:"agentSessionId,omitempty"`
 }
 
 // MessageChunkPayload represents a chunk of streamed text.

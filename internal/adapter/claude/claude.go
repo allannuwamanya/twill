@@ -26,6 +26,15 @@ type ClaudeAdapter struct {
 	cliPath    string
 	// pending maps permission request IDs to the tool input to echo back on approval.
 	pending map[string]map[string]interface{}
+	// resumeID is the Claude session to resume on the next Start ("" = fresh session).
+	resumeID string
+}
+
+// SetResumeID sets the Claude session ID that the next Start will resume.
+func (c *ClaudeAdapter) SetResumeID(id string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.resumeID = id
 }
 
 // NewClaudeAdapter initializes a new ClaudeAdapter.
@@ -78,14 +87,18 @@ func (c *ClaudeAdapter) Start(parentCtx context.Context, sessionID string, proje
 	c.activeTask = true
 
 	// Headless structured streaming; permission prompts are routed to us over stdio.
-	cmd := exec.CommandContext(ctx, cliPath,
+	args := []string{
 		"-p",
 		"--verbose",
 		"--output-format=stream-json",
 		"--input-format=stream-json",
 		"--include-partial-messages",
 		"--permission-prompt-tool=stdio",
-	)
+	}
+	if c.resumeID != "" {
+		args = append(args, "--resume", c.resumeID)
+	}
+	cmd := exec.CommandContext(ctx, cliPath, args...)
 	cmd.Dir = projectDir
 
 	stdin, err := cmd.StdinPipe()

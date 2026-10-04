@@ -7,7 +7,9 @@ import { ApprovalDialog } from './features/approvals/components/ApprovalDialog';
 import { QuestionPrompt } from './features/approvals/components/QuestionPrompt';
 import { PlanReview } from './features/approvals/components/PlanReview';
 import { DiffReviewCard } from './features/diff/components/DiffReviewCard';
+import { HistorySidebar } from './features/history/components/HistorySidebar';
 import { useSessionStore } from './stores/useSessionStore';
+import { useHistoryStore } from './stores/useHistoryStore';
 import { useAgentStore } from './stores/useAgentStore';
 import { useProjectStore } from './stores/useProjectStore';
 import { wailsBridge } from './api/wailsBridge';
@@ -18,8 +20,10 @@ export function App() {
     timeline,
     streamingContent,
     isStreaming,
+    persist,
     handleEvent: handleSessionEvent,
   } = useSessionStore();
+  const refreshHistory = useHistoryStore((s) => s.refresh);
   const { handleEvent: handleAgentEvent } = useAgentStore();
   const { projectDir } = useProjectStore();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -43,8 +47,30 @@ export function App() {
     }
   }, [timeline, streamingContent]);
 
+  // Autosave the session (debounced) whenever the timeline changes and the agent is idle.
+  useEffect(() => {
+    if (isStreaming || timeline.length === 0) return;
+    const handle = setTimeout(async () => {
+      await persist();
+      refreshHistory();
+    }, 500);
+    return () => clearTimeout(handle);
+  }, [timeline, isStreaming, persist, refreshHistory]);
+
+  // Switching to a different project starts a fresh session (sessions belong to one project).
+  useEffect(() => {
+    const { sessionProjectDir, timeline: tl, initSession } = useSessionStore.getState();
+    if (sessionProjectDir && projectDir && sessionProjectDir !== projectDir && tl.length > 0) {
+      initSession();
+    }
+  }, [projectDir]);
+
   return (
-    <div className="dark flex flex-col h-screen w-screen bg-background text-foreground overflow-hidden">
+    <div className="dark flex flex-row h-screen w-screen bg-background text-foreground overflow-hidden">
+      {/* Session history */}
+      <HistorySidebar />
+
+      <div className="flex flex-col flex-1 min-w-0">
       {/* Top Header with Directory Selection & Status */}
       <ProjectHeader />
 
@@ -135,6 +161,7 @@ export function App() {
 
       {/* Bottom Chat Prompt Input */}
       <ChatInput />
+      </div>
     </div>
   );
 }

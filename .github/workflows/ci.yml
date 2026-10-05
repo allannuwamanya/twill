@@ -59,6 +59,7 @@ jobs:
         with:
           node-version: '22'
           cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
 
       # wails.json drives the frontend with pnpm, so the lockfile is pnpm's.
       - run: pnpm install --frozen-lockfile
@@ -88,6 +89,7 @@ jobs:
         with:
           node-version: '22'
           cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
 
       # wails build shells out to `pnpm install` and `pnpm run build` (wails.json),
       # so pnpm has to be on PATH before the Wails CLI runs.

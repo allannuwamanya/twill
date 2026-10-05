@@ -13,7 +13,6 @@ import {
   PanelLeft,
   ChevronLeft,
   ChevronRight,
-  MessageSquare,
 } from 'lucide-react';
 import { useHistoryStore } from '../../../stores/useHistoryStore';
 import { useSessionStore } from '../../../stores/useSessionStore';
@@ -40,9 +39,8 @@ export function HistorySidebar() {
   const { sessions, refresh, remove } = useHistoryStore();
   const { sessionId, isStreaming, initSession, loadSession, persist } = useSessionStore();
   const { status } = useAgentStore();
-  const { projectDir, projectName, knownProjects, selectProject, setProjectDir, removeProject } = useProjectStore();
+  const { projectDir, knownProjects, selectProject, setProjectDir, removeProject } = useProjectStore();
   const [now, setNow] = useState(() => Date.now());
-  const [activeTab, setActiveTab] = useState<'chat' | 'tasks'>('chat');
 
   const logoState: TwillLogoState = isStreaming
     ? 'streaming'
@@ -176,111 +174,75 @@ export function HistorySidebar() {
   };
 
   return (
-    <aside className="w-64 shrink-0 flex flex-col h-full bg-[#181715] border-r border-[#282623] text-[#eeeae4] select-none font-sans text-xs">
-      {/* Top Brand Logo & Browser Navigation */}
-      <div className="px-3 pt-3 pb-2 flex items-center justify-between">
+    <aside className="w-[285px] shrink-0 flex flex-col h-full bg-[#181715] border-r border-[#282623] text-[#eeeae4] select-none font-sans text-sm wails-no-drag">
+      {/* Top Row: Brand Logo + Sidebar Toggle + History Arrows (Matches Antigravity) */}
+      <div className="px-4 pt-3.5 pb-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {/* Twill brand knot with reactive state */}
           <div className="w-7 h-7 rounded-lg bg-[#201f1c] border border-[#302e2a] flex items-center justify-center shadow-xs select-none p-1">
             <TwillLogo state={logoState} size={20} onDark={true} />
           </div>
-          <span className="font-semibold text-[#eeeae4] tracking-tight text-xs">Twill</span>
         </div>
 
         {/* Browser Nav: Sidebar, Back, Forward */}
-        <div className="flex items-center gap-1 text-[#827f78]">
+        <div className="flex items-center gap-1.5 text-[#88847d]">
           <button
             onClick={() => {}}
             title="Toggle sidebar"
             className="p-1 rounded-md hover:bg-[#252320] hover:text-[#eeeae4] transition-colors cursor-pointer"
           >
-            <PanelLeft className="w-3.5 h-3.5" />
+            <PanelLeft className="w-4 h-4" />
           </button>
           <button
             onClick={() => {}}
             title="Back"
             className="p-1 rounded-md hover:bg-[#252320] hover:text-[#eeeae4] transition-colors cursor-pointer"
           >
-            <ChevronLeft className="w-3.5 h-3.5" />
+            <ChevronLeft className="w-4 h-4" />
           </button>
           <button
             onClick={() => {}}
             title="Forward"
             className="p-1 rounded-md hover:bg-[#252320] hover:text-[#eeeae4] transition-colors cursor-pointer"
           >
-            <ChevronRight className="w-3.5 h-3.5" />
+            <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* Segmented Mode Switcher (Matches Claude Desktop Chat vs Cowork) */}
-      <div className="px-3 py-1">
-        <div className="grid grid-cols-2 p-0.5 rounded-lg bg-[#22201d] border border-[#2f2d29] text-[11px]">
-          <button
-            onClick={() => setActiveTab('chat')}
-            className={`py-1 rounded-md font-medium transition-all cursor-pointer ${
-              activeTab === 'chat'
-                ? 'bg-[#2d2b27] text-[#eeeae4] shadow-xs'
-                : 'text-[#827f78] hover:text-[#d8d5ce]'
-            }`}
-          >
-            Chat
-          </button>
-          <button
-            onClick={() => setActiveTab('tasks')}
-            className={`py-1 rounded-md font-medium transition-all cursor-pointer flex items-center justify-center gap-1 ${
-              activeTab === 'tasks'
-                ? 'bg-[#2d2b27] text-[#eeeae4] shadow-xs'
-                : 'text-[#827f78] hover:text-[#d8d5ce]'
-            }`}
-          >
-            <span>Cowork</span>
-            <span className="text-[9px] px-1 py-0.2 rounded bg-[#383530] text-[#d9b98a]">CLI</span>
-          </button>
-        </div>
-      </div>
-
-      {/* New Chat Action Button */}
-      <div className="px-3 py-1.5">
+      {/* New Conversation Button (Full width rounded pill matching Antigravity) */}
+      <div className="px-3.5 py-2">
         <button
           onClick={onNewSession}
           disabled={busy}
-          className="w-full flex items-center justify-start gap-2 rounded-xl border border-[#33312c] bg-[#22201d] hover:bg-[#282623] active:bg-[#2d2b27] disabled:opacity-50 disabled:cursor-not-allowed px-3 py-2 text-xs font-medium text-[#eeeae4] transition-all cursor-pointer shadow-xs"
+          className="w-full h-10 flex items-center justify-start gap-2.5 rounded-xl border border-[#33312c] bg-[#22201d] hover:bg-[#2a2825] active:bg-[#2f2d29] disabled:opacity-50 disabled:cursor-not-allowed px-3.5 text-sm font-medium text-[#eeeae4] transition-all cursor-pointer shadow-xs"
         >
-          <Plus className="w-3.5 h-3.5 text-[#96928a]" />
-          <span>New chat</span>
+          <Plus className="w-4 h-4 text-[#d9b98a]" />
+          <span>New Conversation</span>
         </button>
       </div>
 
-      {/* Navigation Quick Links */}
-      <div className="px-2 py-1 space-y-0.5 border-b border-[#282623] pb-2">
+      {/* Navigation Links: Conversation History & Scheduled Tasks */}
+      <div className="px-3 py-1 space-y-0.5 border-b border-[#282623] pb-2.5">
         <button
           onClick={() => refresh()}
-          className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[#96928a] hover:text-[#eeeae4] hover:bg-[#22201d] transition-colors cursor-pointer text-left"
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[#96928a] hover:text-[#eeeae4] hover:bg-[#22201d] transition-colors cursor-pointer text-left text-sm"
         >
-          <MessageSquare className="w-3.5 h-3.5 text-[#7d7972]" />
-          <span className="font-normal text-xs">Chats</span>
+          <History className="w-4 h-4 text-[#7d7972]" />
+          <span className="font-normal">Conversation History</span>
         </button>
         <button
           onClick={handleOpenFolder}
-          className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[#96928a] hover:text-[#eeeae4] hover:bg-[#22201d] transition-colors cursor-pointer text-left"
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[#96928a] hover:text-[#eeeae4] hover:bg-[#22201d] transition-colors cursor-pointer text-left text-sm"
         >
-          <Folder className="w-3.5 h-3.5 text-[#7d7972]" />
-          <span className="font-normal text-xs">Projects</span>
-        </button>
-        <button
-          onClick={() => {}}
-          className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[#96928a] hover:text-[#eeeae4] hover:bg-[#22201d] transition-colors cursor-pointer text-left"
-        >
-          <Clock className="w-3.5 h-3.5 text-[#7d7972]" />
-          <span className="font-normal text-xs">Scheduled Tasks</span>
+          <Clock className="w-4 h-4 text-[#7d7972]" />
+          <span className="font-normal">Scheduled Tasks</span>
         </button>
       </div>
 
       {/* Projects Section Header */}
-      <div className="px-3 pt-3 pb-1.5 flex items-center justify-between text-[#827f78]">
-        <span className="font-medium text-[11px] uppercase tracking-wider text-[#7d7972]">
-          Recents & Projects
+      <div className="px-4 pt-3.5 pb-2 flex items-center justify-between text-[#88847d]">
+        <span className="font-medium text-xs text-[#88847d]">
+          Projects
         </span>
         <div className="flex items-center gap-1 text-[#7d7972]">
           <button
@@ -288,34 +250,34 @@ export function HistorySidebar() {
             title="Filter projects"
             className="p-1 rounded hover:bg-[#252320] hover:text-[#eeeae4] transition-colors cursor-pointer"
           >
-            <SlidersHorizontal className="w-3 h-3" />
+            <SlidersHorizontal className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={toggleAllFolders}
             title="Toggle all folders"
             className="p-1 rounded hover:bg-[#252320] hover:text-[#eeeae4] transition-colors cursor-pointer"
           >
-            <ChevronsUpDown className="w-3 h-3" />
+            <ChevronsUpDown className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={handleOpenFolder}
             title="Add / Open project folder"
             className="p-1 rounded hover:bg-[#252320] hover:text-[#c66b4d] transition-colors cursor-pointer"
           >
-            <FolderPlus className="w-3 h-3" />
+            <FolderPlus className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Folder & Session Tree (Indented, Warm, Claude Desktop Style) */}
-      <div className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
+      {/* Folder & Session Tree */}
+      <div className="flex-1 overflow-y-auto px-2.5 py-1 space-y-0.5">
         {projectList.length === 0 && (
           <div className="px-3 py-6 text-center text-[#7d7972]">
             <Folder className="w-5 h-5 mx-auto mb-2 opacity-40 text-[#96928a]" />
-            <p className="text-[11px]">No projects yet.</p>
+            <p className="text-xs">No projects yet.</p>
             <button
               onClick={handleOpenFolder}
-              className="mt-1 text-[11px] text-[#c66b4d] hover:underline cursor-pointer"
+              className="mt-1.5 text-xs text-[#c66b4d] hover:underline cursor-pointer"
             >
               Open folder
             </button>
@@ -335,7 +297,7 @@ export function HistorySidebar() {
                 tabIndex={0}
                 onClick={() => toggleFolder(project.dir)}
                 onKeyDown={(e) => e.key === 'Enter' && toggleFolder(project.dir)}
-                className={`group flex items-center justify-between px-2 py-1.5 rounded-lg cursor-pointer transition-colors ${
+                className={`group flex items-center justify-between px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors ${
                   isCurrentProject
                     ? 'text-[#eeeae4] bg-[#22201d]'
                     : 'text-[#96928a] hover:text-[#eeeae4] hover:bg-[#1e1d1a]'
@@ -343,11 +305,11 @@ export function HistorySidebar() {
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   {isExpanded ? (
-                    <FolderOpen className={`w-3.5 h-3.5 shrink-0 ${isCurrentProject ? 'text-[#d9b98a]' : 'text-[#7d7972]'}`} />
+                    <FolderOpen className={`w-4 h-4 shrink-0 ${isCurrentProject ? 'text-[#d9b98a]' : 'text-[#7d7972]'}`} />
                   ) : (
-                    <Folder className={`w-3.5 h-3.5 shrink-0 ${isCurrentProject ? 'text-[#d9b98a]' : 'text-[#7d7972]'}`} />
+                    <Folder className={`w-4 h-4 shrink-0 ${isCurrentProject ? 'text-[#d9b98a]' : 'text-[#7d7972]'}`} />
                   )}
-                  <span className="truncate font-normal text-xs text-[#d8d5ce]" title={project.dir}>
+                  <span className="truncate font-normal text-sm text-[#d8d5ce]" title={project.dir}>
                     {project.name}
                   </span>
                 </div>
@@ -362,7 +324,7 @@ export function HistorySidebar() {
                       title="Remove folder"
                       className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:text-[#e5484d] text-[#7d7972] transition-opacity"
                     >
-                      <Trash2 className="w-3 h-3" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
@@ -372,7 +334,7 @@ export function HistorySidebar() {
               {isExpanded && (
                 <div className="pl-4 space-y-0.5 py-0.5">
                   {projectSessions.length === 0 ? (
-                    <div className="py-1 px-2 text-[11px] text-[#7d7972] italic">
+                    <div className="py-1 px-2 text-xs text-[#7d7972] italic">
                       No sessions yet
                     </div>
                   ) : (
@@ -385,20 +347,20 @@ export function HistorySidebar() {
                           tabIndex={0}
                           onClick={() => openSession(s.id, s.projectDir)}
                           onKeyDown={(e) => e.key === 'Enter' && openSession(s.id, s.projectDir)}
-                          className={`group relative flex items-center justify-between gap-2 rounded-xl px-2.5 py-1.5 cursor-pointer transition-colors ${
+                          className={`group relative flex items-center justify-between gap-2 rounded-xl px-3 py-2 cursor-pointer transition-colors ${
                             active
                               ? 'bg-[#2b2926] text-[#eeeae4] border border-[#383631] font-medium shadow-xs'
                               : 'text-[#96928a] hover:text-[#eeeae4] hover:bg-[#201f1c] border border-transparent font-normal'
                           } ${busy && !active ? 'opacity-60 cursor-not-allowed' : ''}`}
                         >
                           <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <span className="truncate text-xs">
+                            <span className="truncate text-sm">
                               {s.title || 'Untitled session'}
                             </span>
                           </div>
 
                           <div className="flex items-center gap-1 shrink-0">
-                            <span className="text-[10px] text-[#7d7972] font-mono group-hover:hidden">
+                            <span className="text-xs text-[#7d7972] font-mono group-hover:hidden">
                               {compactRelativeTime(s.updatedAt, now)}
                             </span>
                             <button
@@ -406,7 +368,7 @@ export function HistorySidebar() {
                               title="Delete session"
                               className="hidden group-hover:flex p-0.5 rounded hover:text-[#e5484d] text-[#7d7972] transition-colors"
                             >
-                              <Trash2 className="w-3 h-3" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>
@@ -420,28 +382,14 @@ export function HistorySidebar() {
         })}
       </div>
 
-      {/* Bottom Footer: User/Project Badge & Settings (Matches Claude Desktop Image 2) */}
-      <div className="p-3 border-t border-[#282623] flex items-center justify-between">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-6 h-6 rounded-full bg-[#2b2926] border border-[#3a3833] flex items-center justify-center text-[11px] font-semibold text-[#d9b98a] shrink-0">
-            {(projectName || 'T')[0].toUpperCase()}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-xs font-medium text-[#eeeae4] truncate leading-tight">
-              {projectName || 'twill'}
-            </div>
-            <div className="text-[10px] text-[#7d7972] leading-tight">
-              Local Engine
-            </div>
-          </div>
-        </div>
-
+      {/* Bottom Footer: Settings Gear only (Matches Antigravity) */}
+      <div className="h-12 px-4 border-t border-[#282623] flex items-center justify-between">
         <button
           onClick={() => {}}
-          title="Settings"
-          className="p-1 rounded-md hover:bg-[#252320] text-[#827f78] hover:text-[#eeeae4] transition-colors cursor-pointer"
+          className="flex items-center gap-2.5 text-[#96928a] hover:text-[#eeeae4] transition-colors cursor-pointer text-sm"
         >
-          <Settings className="w-3.5 h-3.5" />
+          <Settings className="w-4 h-4 text-[#7d7972]" />
+          <span>Settings</span>
         </button>
       </div>
     </aside>

@@ -115,7 +115,7 @@ export function App() {
   const isEmpty = timeline.length === 0 && !streamingContent;
 
   return (
-    <div className="dark flex flex-col h-screen w-screen bg-[#1f1e1b] text-[#eeeae4] overflow-hidden font-sans select-none antialiased">
+    <div className="dark flex flex-col h-screen w-screen bg-[#1f1e1b] text-[#eeeae4] overflow-hidden font-sans antialiased">
       {/* Top Application Titlebar with Antigravity window controls */}
       <AntigravityTitleBar />
 
@@ -131,7 +131,7 @@ export function App() {
           {/* Main Area: Centered Claude Desktop Empty State vs Timeline */}
           {isEmpty ? (
             <main className="flex-1 flex flex-col items-center justify-center px-6 py-8 overflow-y-auto">
-              <div className="w-full max-w-2xl mx-auto flex flex-col items-center text-center -mt-12 select-none">
+              <div className="w-full max-w-2xl mx-auto flex flex-col items-center text-center -mt-12">
                 {/* Greeting with Twill Knot + Editorial Serif font (Matches Claude Desktop Image 2) */}
                 <div className="flex items-center justify-center gap-3.5 mb-6">
                   <div className="w-9 h-9 flex items-center justify-center">
@@ -195,7 +195,7 @@ export function App() {
                 onScroll={handleScroll}
                 className="flex-1 overflow-y-auto px-6 py-4 scroll-smooth bg-[#1f1e1b]"
               >
-                <div className="space-y-3 max-w-3xl mx-auto pb-4">
+                <div className="space-y-3.5 max-w-4xl mx-auto pb-6 px-2">
                   {timeline.map((entry) => {
                     if (entry.type === 'message') {
                       return (

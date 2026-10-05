@@ -324,3 +324,25 @@ func (a *App) DeleteSession(id string) error {
 	a.mu.Unlock()
 	return a.store.Delete(id)
 }
+
+// WindowMinimise minimizes the application window.
+func (a *App) WindowMinimise() {
+	if a.ctx != nil {
+		runtime.WindowMinimise(a.ctx)
+	}
+}
+
+// WindowToggleMaximise toggles maximize/unmaximize on the application window.
+func (a *App) WindowToggleMaximise() {
+	if a.ctx != nil {
+		runtime.WindowToggleMaximise(a.ctx)
+	}
+}
+
+// WindowQuit terminates the application.
+func (a *App) WindowQuit() {
+	if a.ctx != nil {
+		runtime.Quit(a.ctx)
+	}
+}
+

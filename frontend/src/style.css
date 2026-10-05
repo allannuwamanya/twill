@@ -1,16 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer utilities {
   .font-editorial {
-    font-family: "Newsreader", "Canela", "Georgia", "Cambria", "Times New Roman", serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
 }
 
 :root,
 .dark {
-  /* Anthropic Claude Desktop Warm Charcoal / Espresso Palette */
+  /* Warm Claude Desktop Dark Charcoal / Espresso Palette */
   --background: 36 9% 11.5%;        /* #1f1e1b warm deep canvas */
   --foreground: 36 20% 93%;         /* #eeeae4 warm ivory text */
   --card: 36 7% 15.5%;              /* #282724 elevated warm stone surface */
@@ -24,17 +26,46 @@
   --accent: 36 8% 18%;              /* #2f2d29 warm hover surface */
   --accent-foreground: 36 35% 70%;  /* #d9b98a sand thread accent */
   --destructive: 350 75% 55%;       /* #e5484d failed / error */
+
+  --font-sans: "Google Sans", "Google Sans Text", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+  --font-mono: "Google Sans Code", "JetBrains Mono", "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+/* Ensure no element by default inherits drag capture from Wails */
+*, *::before, *::after {
+  --wails-draggable: no-drag;
+}
+
+.wails-drag {
+  --wails-draggable: drag;
+}
+
+.wails-no-drag {
+  --wails-draggable: no-drag;
 }
 
 body {
   margin: 0;
   padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--font-sans);
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
   overflow: hidden;
-  user-select: none;
-  -webkit-user-select: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Ensure textareas and inputs are always fully interactive and selectable */
+input, textarea, [contenteditable="true"] {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  cursor: text !important;
+}
+
+button {
+  cursor: pointer;
 }
 
 /* Custom warm scrollbars matching Claude Desktop */
@@ -43,8 +74,8 @@ body {
   scrollbar-color: rgba(210, 205, 195, 0.18) transparent;
 }
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;

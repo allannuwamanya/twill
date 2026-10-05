@@ -113,27 +113,51 @@ export const wailsBridge = {
   },
 
   // Window Management
-  windowMinimise: (): void => {
+  windowMinimise: async (): Promise<void> => {
     try {
+      if (typeof (AppGo as any).WindowMinimise === 'function') {
+        await (AppGo as any).WindowMinimise();
+        return;
+      }
       WindowMinimise();
-    } catch (err) {
-      console.error('Failed to minimize window:', err);
+    } catch {
+      try {
+        WindowMinimise();
+      } catch (err) {
+        console.error('Failed to minimize window:', err);
+      }
     }
   },
 
-  windowToggleMaximise: (): void => {
+  windowToggleMaximise: async (): Promise<void> => {
     try {
+      if (typeof (AppGo as any).WindowToggleMaximise === 'function') {
+        await (AppGo as any).WindowToggleMaximise();
+        return;
+      }
       WindowToggleMaximise();
-    } catch (err) {
-      console.error('Failed to toggle maximize window:', err);
+    } catch {
+      try {
+        WindowToggleMaximise();
+      } catch (err) {
+        console.error('Failed to toggle maximize window:', err);
+      }
     }
   },
 
-  quit: (): void => {
+  quit: async (): Promise<void> => {
     try {
+      if (typeof (AppGo as any).WindowQuit === 'function') {
+        await (AppGo as any).WindowQuit();
+        return;
+      }
       Quit();
-    } catch (err) {
-      console.error('Failed to quit:', err);
+    } catch {
+      try {
+        Quit();
+      } catch (err) {
+        console.error('Failed to quit:', err);
+      }
     }
   },
 

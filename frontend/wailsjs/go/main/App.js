@@ -73,3 +73,15 @@ export function StartTask(arg1, arg2) {
 export function StopTask() {
   return window['go']['main']['App']['StopTask']();
 }
+
+export function WindowMinimise() {
+  return window['go']['main']['App']['WindowMinimise']();
+}
+
+export function WindowQuit() {
+  return window['go']['main']['App']['WindowQuit']();
+}
+
+export function WindowToggleMaximise() {
+  return window['go']['main']['App']['WindowToggleMaximise']();
+}

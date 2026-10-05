@@ -37,3 +37,9 @@ export function SetProjectDirectory(arg1:string):Promise<void>;
 export function StartTask(arg1:string,arg2:string):Promise<void>;
 
 export function StopTask():Promise<void>;
+
+export function WindowMinimise():Promise<void>;
+
+export function WindowQuit():Promise<void>;
+
+export function WindowToggleMaximise():Promise<void>;

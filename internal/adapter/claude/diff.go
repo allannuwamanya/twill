@@ -2,6 +2,8 @@ package claude
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"twill/internal/domain"
@@ -245,7 +247,7 @@ func applyEdits(content string, edits []map[string]interface{}) string {
 // buildEditDiffs turns one tool call into diff payloads it should produce.
 // MultiEdit is treated as one edit of the file's final content rather than one
 // diff per individual replacement.
-func buildEditDiffs(b contentBlock) []*domain.DiffPayload {
+func buildEditDiffs(b contentBlock, projectDir ...string) []*domain.DiffPayload {
 	path, _ := b.Input["file_path"].(string)
 
 	switch b.Name {
@@ -257,10 +259,24 @@ func buildEditDiffs(b contentBlock) []*domain.DiffPayload {
 		}
 
 	case "Write":
-		// A write replaces whatever was there; the old content lives on disk and
-		// is not available here, so this renders as an addition.
 		newStr, _ := b.Input["content"].(string)
-		if diff, ok := buildFileDiff(b.ID, path, "added", "", newStr); ok {
+		status := "added"
+		oldStr := ""
+		diskPath := path
+		var dir string
+		if len(projectDir) > 0 {
+			dir = projectDir[0]
+		}
+		if dir != "" && !filepath.IsAbs(diskPath) {
+			diskPath = filepath.Join(dir, diskPath)
+		}
+		if diskPath != "" {
+			if data, err := os.ReadFile(diskPath); err == nil {
+				status = "modified"
+				oldStr = string(data)
+			}
+		}
+		if diff, ok := buildFileDiff(b.ID, path, status, oldStr, newStr); ok {
 			return []*domain.DiffPayload{{DiffID: b.ID, Files: []domain.FileDiff{diff}}}
 		}
 

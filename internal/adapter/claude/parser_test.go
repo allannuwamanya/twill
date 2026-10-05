@@ -53,6 +53,45 @@ func TestParsePermissionRequest(t *testing.T) {
 	}
 }
 
+func TestParseQuestionToolInControlRequest(t *testing.T) {
+	line := `{"type":"control_request","request_id":"q1","request":{"subtype":"can_use_tool","tool_name":"AskFollowupQuestion","input":{"question":"Which DB?","options":["Postgres","SQLite"],"allowCustom":true}}}`
+	r, err := ParseLine(line)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.PermissionRequestID != "q1" {
+		t.Fatalf("want request ID q1, got %q", r.PermissionRequestID)
+	}
+	if len(r.Events) != 2 {
+		t.Fatalf("want 2 events, got %d", len(r.Events))
+	}
+	if r.Events[0].Type != domain.EventStatusChange {
+		t.Fatalf("want status change first, got %s", r.Events[0].Type)
+	}
+	if r.Events[1].Type != domain.EventQuestion {
+		t.Fatalf("want question event, got %s", r.Events[1].Type)
+	}
+	q, ok := r.Events[1].Payload.(domain.QuestionPayload)
+	if !ok || q.Question != "Which DB?" || len(q.Options) != 2 || !q.AllowCustom {
+		t.Fatalf("unexpected question payload: %+v", q)
+	}
+}
+
+func TestParseQuestionToolInAssistant(t *testing.T) {
+	line := `{"type":"assistant","message":{"content":[{"type":"tool_use","id":"q2","name":"AskUserQuestion","input":{"question":"Proceed?","options":[{"id":"y","label":"Yes"},{"id":"n","label":"No"}]}}]}}`
+	r, err := ParseLine(line)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Events) != 2 || r.Events[1].Type != domain.EventQuestion {
+		t.Fatalf("want question event, got %+v", r.Events)
+	}
+	q := r.Events[1].Payload.(domain.QuestionPayload)
+	if q.Question != "Proceed?" || len(q.Options) != 2 || q.Options[0].Label != "Yes" {
+		t.Fatalf("unexpected question payload: %+v", q)
+	}
+}
+
 func TestParseResult(t *testing.T) {
 	r, _ := ParseLine(`{"type":"result","subtype":"success","is_error":false,"result":"done"}`)
 	if !r.Finished || len(r.Events) != 2 {

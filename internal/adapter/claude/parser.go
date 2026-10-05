@@ -56,7 +56,7 @@ type messageBody struct {
 }
 
 // ParseLine converts a single NDJSON line from `claude -p --output-format stream-json`.
-func ParseLine(line string) (ParseResult, error) {
+func ParseLine(line string, projectDir ...string) (ParseResult, error) {
 	var res ParseResult
 	line = strings.TrimSpace(line)
 	if line == "" {
@@ -65,6 +65,11 @@ func ParseLine(line string) (ParseResult, error) {
 	var raw rawLine
 	if err := json.Unmarshal([]byte(line), &raw); err != nil {
 		return res, fmt.Errorf("invalid stream-json line: %w", err)
+	}
+
+	var dir string
+	if len(projectDir) > 0 {
+		dir = projectDir[0]
 	}
 
 	switch raw.Type {
@@ -91,15 +96,23 @@ func ParseLine(line string) (ParseResult, error) {
 				domain.MessageChunkPayload{Content: ev.Delta.Text}})
 		}
 	case "assistant":
-		// Text is already streamed via deltas; only surface tool calls here.
+		// Text is already streamed via deltas; only surface tool calls and question prompts here.
 		for _, b := range parseBlocks(raw.Message) {
 			if b.Type != "tool_use" {
+				continue
+			}
+			if isQuestionTool(b.Name) {
+				q := parseQuestion(b.ID, b.Input, "", "")
+				res.Events = append(res.Events,
+					ParsedEvent{domain.EventStatusChange, domain.StatusPayload{Status: domain.StatusWaiting}},
+					ParsedEvent{domain.EventQuestion, q},
+				)
 				continue
 			}
 			res.Events = append(res.Events, ParsedEvent{domain.EventToolStart, domain.ToolCallPayload{
 				ToolID: b.ID, ToolName: b.Name, Input: b.Input, Status: "running",
 			}})
-			if d := buildEditDiffs(b); len(d) > 0 {
+			if d := buildEditDiffs(b, dir); len(d) > 0 {
 				for _, payload := range d {
 					res.Events = append(res.Events, ParsedEvent{domain.EventDiff, *payload})
 				}
@@ -141,6 +154,16 @@ func ParseLine(line string) (ParseResult, error) {
 			res.Events = append(res.Events,
 				ParsedEvent{domain.EventStatusChange, domain.StatusPayload{Status: domain.StatusWaiting}},
 				ParsedEvent{domain.EventPlan, parsePlan(raw.RequestID, plan)})
+			return res, nil
+		}
+
+		// Interactive questions route directly to the Question UI rather than generic approvals.
+		if isQuestionTool(req.ToolName) {
+			res.PermissionRequestID = raw.RequestID
+			q := parseQuestion(raw.RequestID, req.Input, req.Title, req.Desc)
+			res.Events = append(res.Events,
+				ParsedEvent{domain.EventStatusChange, domain.StatusPayload{Status: domain.StatusWaiting}},
+				ParsedEvent{domain.EventQuestion, q})
 			return res, nil
 		}
 
@@ -201,4 +224,82 @@ func blockText(raw json.RawMessage) string {
 		return sb.String()
 	}
 	return ""
+}
+
+func isQuestionTool(name string) bool {
+	switch strings.ToLower(name) {
+	case "askfollowupquestion", "askuserquestion", "askquestion", "questionprompt", "promptuser", "askuser", "question":
+		return true
+	default:
+		return false
+	}
+}
+
+func parseQuestion(id string, input map[string]interface{}, title, desc string) domain.QuestionPayload {
+	text := ""
+	if input != nil {
+		for _, key := range []string{"question", "prompt", "message", "text"} {
+			if val, ok := input[key].(string); ok && strings.TrimSpace(val) != "" {
+				text = strings.TrimSpace(val)
+				break
+			}
+		}
+	}
+	if text == "" {
+		if title != "" {
+			text = title
+		} else if desc != "" {
+			text = desc
+		} else {
+			text = "The agent is asking for clarification."
+		}
+	}
+
+	var options []domain.QuestionOption
+	if input != nil {
+		if rawOpts, ok := input["options"].([]interface{}); ok {
+			for idx, opt := range rawOpts {
+				switch o := opt.(type) {
+				case string:
+					if strings.TrimSpace(o) != "" {
+						options = append(options, domain.QuestionOption{
+							ID:    fmt.Sprintf("opt_%d", idx+1),
+							Label: strings.TrimSpace(o),
+						})
+					}
+				case map[string]interface{}:
+					label, _ := o["label"].(string)
+					if label == "" {
+						label, _ = o["text"].(string)
+					}
+					optID, _ := o["id"].(string)
+					if optID == "" {
+						optID = fmt.Sprintf("opt_%d", idx+1)
+					}
+					if strings.TrimSpace(label) != "" {
+						options = append(options, domain.QuestionOption{
+							ID:    optID,
+							Label: strings.TrimSpace(label),
+						})
+					}
+				}
+			}
+		}
+	}
+
+	allowCustom := true
+	if input != nil {
+		if ac, ok := input["allowCustom"].(bool); ok {
+			allowCustom = ac
+		} else if ac, ok := input["allow_custom"].(bool); ok {
+			allowCustom = ac
+		}
+	}
+
+	return domain.QuestionPayload{
+		QuestionID:  id,
+		Question:    text,
+		Options:     options,
+		AllowCustom: allowCustom,
+	}
 }

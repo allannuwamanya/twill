@@ -1,6 +1,7 @@
 package claude
 
 import (
+	"bytes"
 	"context"
 	"strings"
 	"testing"
@@ -134,5 +135,78 @@ func TestAutoApproveWithoutStoreEscalates(t *testing.T) {
 	}
 	if c.autoApprove("sess_1", res) {
 		t.Fatal("nil permission store must escalate everything")
+	}
+}
+
+type testBufferCloser struct {
+	bytes.Buffer
+}
+
+func (b *testBufferCloser) Close() error { return nil }
+
+func TestSendAnswerRespondsWithControlResponseWhenPending(t *testing.T) {
+	c := NewClaudeAdapter(nil)
+	buf := &testBufferCloser{}
+	c.mu.Lock()
+	c.stdin = buf
+	c.pending = map[string]map[string]interface{}{
+		"q1": {"question": "Which option?"},
+	}
+	c.mu.Unlock()
+
+	if err := c.SendAnswer("q1", "Option A"); err != nil {
+		t.Fatal(err)
+	}
+
+	c.mu.Lock()
+	_, stillPending := c.pending["q1"]
+	c.mu.Unlock()
+	if stillPending {
+		t.Error("q1 should have been removed from pending")
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, `"control_response"`) || !strings.Contains(out, `"updatedInput":{"answer":"Option A"}`) {
+		t.Fatalf("want control_response with answer, got: %s", out)
+	}
+}
+
+func TestSendAnswerSendsUserMessageWhenNotPending(t *testing.T) {
+	c := NewClaudeAdapter(nil)
+	buf := &testBufferCloser{}
+	c.mu.Lock()
+	c.stdin = buf
+	c.mu.Unlock()
+
+	if err := c.SendAnswer("q2", "Free text reply"); err != nil {
+		t.Fatal(err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, `"type":"user"`) || !strings.Contains(out, "Free text reply") {
+		t.Fatalf("want user message, got: %s", out)
+	}
+}
+
+func TestAutoApproveNeverAppliesToQuestionTool(t *testing.T) {
+	store, err := domain.NewPermissionStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	projectDir := t.TempDir()
+	_ = store.AllowAction(projectDir, "AskFollowupQuestion")
+
+	c := NewClaudeAdapter(store)
+	c.mu.Lock()
+	c.projectDir = projectDir
+	c.mu.Unlock()
+
+	res := ParseResult{
+		PermissionRequestID: "q1",
+		PermissionToolName:  "AskFollowupQuestion",
+		PermissionInput:     map[string]interface{}{"question": "Which one?"},
+	}
+	if c.autoApprove("sess_1", res) {
+		t.Fatal("question tool must never be auto-approved")
 	}
 }

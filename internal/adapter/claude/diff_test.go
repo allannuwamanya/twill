@@ -1,6 +1,8 @@
 package claude
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -93,7 +95,7 @@ func TestBuildEditDiffsHandlesEachTool(t *testing.T) {
 		}
 	})
 
-	t.Run("Write", func(t *testing.T) {
+	t.Run("Write new file", func(t *testing.T) {
 		diffs := buildEditDiffs(contentBlock{Name: "Write", ID: "t2", Input: map[string]interface{}{
 			"file_path": "new.txt", "content": "hello\nworld",
 		}})
@@ -103,6 +105,28 @@ func TestBuildEditDiffsHandlesEachTool(t *testing.T) {
 		f := diffs[0].Files[0]
 		if f.Status != "added" || f.Additions != 2 {
 			t.Fatalf("unexpected file diff: %+v", f)
+		}
+	})
+
+	t.Run("Write to existing file renders modified diff", func(t *testing.T) {
+		dir := t.TempDir()
+		existingFile := filepath.Join(dir, "exists.txt")
+		if err := os.WriteFile(existingFile, []byte("line1\nline2\nline3\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		diffs := buildEditDiffs(contentBlock{Name: "Write", ID: "t2-mod", Input: map[string]interface{}{
+			"file_path": "exists.txt", "content": "line1\nMODIFIED\nline3\n",
+		}}, dir)
+		if len(diffs) != 1 {
+			t.Fatalf("Write produced no diff: %+v", diffs)
+		}
+		f := diffs[0].Files[0]
+		if f.Status != "modified" {
+			t.Fatalf("want status modified, got %s", f.Status)
+		}
+		if f.Additions != 1 || f.Deletions != 1 {
+			t.Fatalf("want 1 addition and 1 deletion, got +%d -%d\n%s", f.Additions, f.Deletions, f.DiffText)
 		}
 	})
 

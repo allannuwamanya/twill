@@ -9,6 +9,7 @@ import { wailsBridge } from '../../../api/wailsBridge';
 export const ProjectHeader: React.FC = () => {
   const { projectDir, projectName, selectProject, setProjectDir } = useProjectStore();
   const { status, statusMessage, activeAdapter } = useAgentStore();
+  const isBusy = status === 'working' || status === 'thinking';
 
   useEffect(() => {
     // Check initial project directory and active adapter
@@ -74,8 +75,10 @@ export const ProjectHeader: React.FC = () => {
         <Button
           variant="outline"
           size="sm"
+          disabled={isBusy}
           onClick={selectProject}
           className="gap-2 shrink-0 border-border/80 bg-muted/40 hover:bg-muted"
+          title={isBusy ? 'Cannot switch projects while the agent is busy' : undefined}
         >
           <Folder className="w-4 h-4 text-primary" />
           <span className="font-semibold">{projectName || 'Select Project'}</span>

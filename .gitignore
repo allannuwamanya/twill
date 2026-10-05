@@ -6,7 +6,8 @@ build/bin/
 
 # Node & Frontend
 frontend/node_modules/
-frontend/dist/
+frontend/dist/*
+!frontend/dist/index.html
 node_modules/
 .npm
 .pnpm-debug.log*

@@ -223,6 +223,25 @@ func (c *ClaudeAdapter) SendApproval(requestID string, approved bool, alwaysAllo
 func (c *ClaudeAdapter) SendAnswer(questionID string, answer string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	// If this question originated from a control_request, answer it with a
+	// control_response so the CLI process unblocks.
+	if _, isPending := c.pending[questionID]; isPending {
+		delete(c.pending, questionID)
+		decision := map[string]interface{}{
+			"behavior":     "allow",
+			"updatedInput": map[string]interface{}{"answer": answer},
+		}
+		return c.writeJSON(map[string]interface{}{
+			"type": "control_response",
+			"response": map[string]interface{}{
+				"subtype":    "success",
+				"request_id": questionID,
+				"response":   decision,
+			},
+		})
+	}
+
 	return c.writeJSON(userMessage(answer))
 }
 
@@ -287,10 +306,14 @@ func (c *ClaudeAdapter) emit(sessionID string, eventType domain.EventType, paylo
 }
 
 func (c *ClaudeAdapter) readStream(sessionID string, stdout io.Reader) {
+	c.mu.Lock()
+	projectDir := c.projectDir
+	c.mu.Unlock()
+
 	scanner := bufio.NewScanner(stdout)
 	scanner.Buffer(make([]byte, 64*1024), 16*1024*1024)
 	for scanner.Scan() {
-		res, err := ParseLine(scanner.Text())
+		res, err := ParseLine(scanner.Text(), projectDir)
 		if err != nil {
 			continue
 		}
@@ -324,8 +347,8 @@ func (c *ClaudeAdapter) readStream(sessionID string, stdout io.Reader) {
 // "always allow" for this exact action in this project. It reports whether the
 // request was handled, in which case no approval prompt is surfaced.
 func (c *ClaudeAdapter) autoApprove(sessionID string, res ParseResult) bool {
-	// Plan review is never skippable, whatever the user has previously granted.
-	if res.PermissionToolName == planToolName {
+	// Plan and question reviews are never skippable, whatever the user has previously granted.
+	if res.PermissionToolName == planToolName || isQuestionTool(res.PermissionToolName) {
 		return false
 	}
 

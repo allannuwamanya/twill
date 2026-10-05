@@ -87,3 +87,45 @@ button {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(210, 205, 195, 0.35);
 }
+
+/* Claude Code Terminal Shimmer & Organic Breathing Wave */
+@keyframes claude-text-shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes claude-text-breathe {
+  0%, 100% {
+    opacity: 0.88;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 1;
+    filter: brightness(1.28);
+  }
+}
+
+.claude-verb-shimmer {
+  background: linear-gradient(
+    90deg,
+    #c66b4d 0%,
+    #d97757 20%,
+    #f8dfc8 45%,
+    #fff4e8 50%,
+    #f8dfc8 55%,
+    #d97757 80%,
+    #c66b4d 100%
+  );
+  background-size: 250% 100%;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: claude-text-shimmer 2.0s linear infinite, claude-text-breathe 2.0s ease-in-out infinite;
+  display: inline-block;
+}
+

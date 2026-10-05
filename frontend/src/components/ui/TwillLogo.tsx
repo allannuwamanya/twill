@@ -49,16 +49,16 @@ const CSS = `
 .twill .s3 { --sc: var(--c3); --k: 2; }
 
 .twill[data-state="idle"] .lat {
-  animation: tw-breathe 3.4s ease-in-out infinite;
+  animation: tw-breathe 2.4s ease-in-out infinite;
 }
 .twill[data-state="thinking"] {
-  --dur: 3.6s;
+  --dur: 2.2s;
 }
 .twill[data-state="working"] {
   --c1: #7C6CFF;
   --c2: #7C6CFF;
   --c3: #7C6CFF;
-  --dur: 1.8s;
+  --dur: 1.2s;
 }
 .twill[data-state="thinking"] .s,
 .twill[data-state="working"] .s {
@@ -73,12 +73,12 @@ const CSS = `
   --c3: #E8A317;
 }
 .twill[data-state="waiting"] .lat {
-  animation: tw-wait 1.8s ease-in-out infinite;
+  animation: tw-wait 1.2s ease-in-out infinite;
 }
 .twill[data-state="streaming"] .s {
   stroke-dasharray: .2 .13;
-  animation: tw-flow .9s linear infinite;
-  animation-delay: calc(var(--k) * -.3s);
+  animation: tw-flow .55s linear infinite;
+  animation-delay: calc(var(--k) * -.18s);
 }
 .twill[data-state="mono"] {
   --c1: currentColor;

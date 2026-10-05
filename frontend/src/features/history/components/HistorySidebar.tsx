@@ -151,6 +151,23 @@ export function HistorySidebar() {
     refresh();
   };
 
+  const onNewSessionInProject = async (e: React.MouseEvent, dir: string) => {
+    e.stopPropagation();
+    if (busy) return;
+    try {
+      await persist();
+    } catch (err) {
+      console.error('Failed to save current session:', err);
+    }
+    if (dir && dir !== projectDir) {
+      setProjectDir(dir);
+    }
+    setExpandedFolders((prev) => ({ ...prev, [dir]: true }));
+    initSession();
+    refresh();
+  };
+
+
   const onDeleteSession = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (busy) return;
@@ -314,20 +331,34 @@ export function HistorySidebar() {
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                <div className="flex items-center gap-1 shrink-0 ml-1">
+                  {/* Antigravity Plus button to create another conversation in this project */}
+                  <button
+                    type="button"
+                    onClick={(e) => onNewSessionInProject(e, project.dir)}
+                    title={`New conversation in ${project.name}`}
+                    className={`p-1 rounded-md hover:bg-[#33312c] text-[#96928a] hover:text-[#eeeae4] transition-all cursor-pointer ${
+                      isCurrentProject ? 'opacity-80 group-hover:opacity-100' : 'opacity-0 group-hover:opacity-100'
+                    }`}
+                  >
+                    <Plus className="w-3.5 h-3.5 stroke-[2] pointer-events-none" />
+                  </button>
+
                   {!isCurrentProject && projectSessions.length === 0 && (
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         removeProject(project.dir);
                       }}
                       title="Remove folder"
-                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:text-[#e5484d] text-[#7d7972] transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:text-[#e5484d] hover:bg-[#33312c] text-[#7d7972] transition-opacity cursor-pointer"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-3.5 h-3.5 pointer-events-none" />
                     </button>
                   )}
                 </div>
+
               </div>
 
               {/* Sessions Under This Folder */}

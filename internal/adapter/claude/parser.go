@@ -19,10 +19,12 @@ type ParseResult struct {
 	Events []ParsedEvent
 	// ClaudeSessionID is set on system/init lines.
 	ClaudeSessionID string
-	// PermissionRequestID / PermissionInput are set for can_use_tool control requests,
-	// so the adapter can answer them later.
+	// PermissionRequestID / PermissionInput / PermissionToolName are set for
+	// can_use_tool control requests, so the adapter can answer them later and
+	// check whether this exact action was already granted.
 	PermissionRequestID string
 	PermissionInput     map[string]interface{}
+	PermissionToolName  string
 	// Finished is true on the terminal "result" line.
 	Finished bool
 }
@@ -97,8 +99,10 @@ func ParseLine(line string) (ParseResult, error) {
 			res.Events = append(res.Events, ParsedEvent{domain.EventToolStart, domain.ToolCallPayload{
 				ToolID: b.ID, ToolName: b.Name, Input: b.Input, Status: "running",
 			}})
-			if d := buildEditDiff(b); d != nil {
-				res.Events = append(res.Events, ParsedEvent{domain.EventDiff, *d})
+			if d := buildEditDiffs(b); len(d) > 0 {
+				for _, payload := range d {
+					res.Events = append(res.Events, ParsedEvent{domain.EventDiff, *payload})
+				}
 			}
 		}
 	case "user":
@@ -125,6 +129,21 @@ func ParseLine(line string) (ParseResult, error) {
 		if err := json.Unmarshal(raw.Request, &req); err != nil || req.Subtype != "can_use_tool" {
 			return res, nil
 		}
+		res.PermissionRequestID = raw.RequestID
+		res.PermissionInput = req.Input
+		res.PermissionToolName = req.ToolName
+
+		// A plan review arrives as an ordinary can_use_tool request, but it gets the
+		// plan UI rather than the generic approval dialog.
+		if req.ToolName == planToolName {
+			plan, _ := req.Input["plan"].(string)
+			res.PermissionRequestID = raw.RequestID
+			res.Events = append(res.Events,
+				ParsedEvent{domain.EventStatusChange, domain.StatusPayload{Status: domain.StatusWaiting}},
+				ParsedEvent{domain.EventPlan, parsePlan(raw.RequestID, plan)})
+			return res, nil
+		}
+
 		desc := req.Title
 		if desc == "" {
 			desc = req.Desc
@@ -132,8 +151,6 @@ func ParseLine(line string) (ParseResult, error) {
 		if desc == "" {
 			desc = "Claude wants to use " + req.ToolName
 		}
-		res.PermissionRequestID = raw.RequestID
-		res.PermissionInput = req.Input
 		res.Events = append(res.Events,
 			ParsedEvent{domain.EventStatusChange, domain.StatusPayload{Status: domain.StatusWaiting}},
 			ParsedEvent{domain.EventPermissionRequest, domain.PermissionRequestPayload{
@@ -184,41 +201,4 @@ func blockText(raw json.RawMessage) string {
 		return sb.String()
 	}
 	return ""
-}
-
-// buildEditDiff synthesizes a unified diff from an Edit tool call.
-func buildEditDiff(b contentBlock) *domain.DiffPayload {
-	if b.Name != "Edit" {
-		return nil
-	}
-	path, _ := b.Input["file_path"].(string)
-	oldS, _ := b.Input["old_string"].(string)
-	newS, _ := b.Input["new_string"].(string)
-	if path == "" {
-		return nil
-	}
-	oldLines := splitLines(oldS)
-	newLines := splitLines(newS)
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "--- a/%s\n+++ b/%s\n@@ -1,%d +1,%d @@\n", path, path, len(oldLines), len(newLines))
-	for _, l := range oldLines {
-		sb.WriteString("-" + l + "\n")
-	}
-	for _, l := range newLines {
-		sb.WriteString("+" + l + "\n")
-	}
-	return &domain.DiffPayload{
-		DiffID: b.ID,
-		Files: []domain.FileDiff{{
-			FilePath: path, OldPath: path, NewPath: path, Status: "modified",
-			Additions: len(newLines), Deletions: len(oldLines), DiffText: sb.String(),
-		}},
-	}
-}
-
-func splitLines(s string) []string {
-	if s == "" {
-		return nil
-	}
-	return strings.Split(strings.TrimSuffix(s, "\n"), "\n")
 }

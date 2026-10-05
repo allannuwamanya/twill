@@ -23,22 +23,26 @@ type App struct {
 	projectDir  string
 	// agentSessions maps Twill session ID -> underlying agent session ID (for resume).
 	agentSessions map[string]string
-	mu            sync.RWMutex
+	// permissionKeys maps a permission request ID -> the stable action key the
+	// user would be granting, so a grant outlives the one-shot request ID.
+	permissionKeys map[string]string
+	mu             sync.RWMutex
 }
 
 // NewApp creates a new App application struct.
 func NewApp() *App {
 	sys.EnsurePathHasNode()
 
-	reg := adapter.NewRegistry()
-	store, _ := jsonstore.NewFileStore()
 	permStore, _ := domain.NewPermissionStore()
+	reg := adapter.NewRegistry(permStore)
+	store, _ := jsonstore.NewFileStore()
 
 	return &App{
-		registry:      reg,
-		store:         store,
-		permissions:   permStore,
-		agentSessions: map[string]string{},
+		registry:       reg,
+		store:          store,
+		permissions:    permStore,
+		agentSessions:  map[string]string{},
+		permissionKeys: map[string]string{},
 	}
 }
 
@@ -47,35 +51,31 @@ func NewApp() *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 
-	// Start background forwarder for all adapter events
-	go a.listenToAdapterEvents()
+	// Subscribe once; the registry fans in events from every adapter, so
+	// switching adapters mid-task cannot strand a running agent's events.
+	go a.forwardEvents(a.registry.Subscribe())
 }
 
-// listenToAdapterEvents forwards events from the active adapter to the Wails frontend event bus.
-func (a *App) listenToAdapterEvents() {
-	for {
-		active := a.registry.Active()
-		if active == nil {
-			time.Sleep(100 * time.Millisecond)
-			continue
+// forwardEvents relays adapter events to the Wails frontend event bus.
+func (a *App) forwardEvents(events <-chan domain.Event) {
+	for evt := range events {
+		a.trackEvent(evt)
+		if a.ctx != nil {
+			runtime.EventsEmit(a.ctx, "agent:event", evt)
 		}
+	}
+}
 
-		select {
-		case evt, ok := <-active.Events():
-			if !ok {
-				time.Sleep(100 * time.Millisecond)
-				continue
-			}
-			if sp, ok := evt.Payload.(domain.StatusPayload); ok && sp.AgentSessionID != "" {
-				a.mu.Lock()
-				a.agentSessions[evt.SessionID] = sp.AgentSessionID
-				a.mu.Unlock()
-			}
-			if a.ctx != nil {
-				runtime.EventsEmit(a.ctx, "agent:event", evt)
-			}
-		case <-time.After(50 * time.Millisecond):
-		}
+// trackEvent records the bits of an event that the frontend cannot send back later.
+func (a *App) trackEvent(evt domain.Event) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if sp, ok := evt.Payload.(domain.StatusPayload); ok && sp.AgentSessionID != "" {
+		a.agentSessions[evt.SessionID] = sp.AgentSessionID
+	}
+	if pr, ok := evt.Payload.(domain.PermissionRequestPayload); ok {
+		a.permissionKeys[pr.RequestID] = domain.ActionKey(pr.Action, pr.Details)
 	}
 }
 
@@ -151,11 +151,16 @@ func (a *App) SendApproval(requestID string, approved bool, alwaysAllow bool) er
 	}
 
 	if alwaysAllow && a.permissions != nil {
-		a.mu.RLock()
+		a.mu.Lock()
 		dir := a.projectDir
-		a.mu.RUnlock()
-		if dir != "" {
-			_ = a.permissions.AllowAction(dir, requestID)
+		key := a.permissionKeys[requestID]
+		delete(a.permissionKeys, requestID)
+		a.mu.Unlock()
+
+		// An unknown key means we never saw the originating request, so there is
+		// nothing safe to grant a blanket permission for.
+		if dir != "" && key != "" {
+			_ = a.permissions.AllowAction(dir, key)
 		}
 	}
 
@@ -195,6 +200,24 @@ func (a *App) GetAllowedActions(projectDir string) []string {
 		return nil
 	}
 	return a.permissions.GetAllowedActions(projectDir)
+}
+
+// IsActionAllowed reports whether the user previously chose "always allow" for
+// the action behind a pending permission request. The frontend cannot compute
+// this itself: the action key is derived from the tool input, not the request ID.
+func (a *App) IsActionAllowed(requestID string) bool {
+	if a.permissions == nil {
+		return false
+	}
+	a.mu.RLock()
+	dir := a.projectDir
+	key := a.permissionKeys[requestID]
+	a.mu.RUnlock()
+
+	if dir == "" || key == "" {
+		return false
+	}
+	return a.permissions.IsActionAllowed(dir, key)
 }
 
 // ListAdapters returns all available adapters.
@@ -248,8 +271,9 @@ func (a *App) SaveSession(id string, title string, messageCount int, timelineJSO
 	if active := a.registry.Active(); active != nil {
 		sess.AdapterID = active.ID()
 	}
-	// Messages is kept as a lightweight count placeholder for summaries.
-	sess.Messages = make([]domain.Message, messageCount)
+	// The messages themselves live in Timeline; only the count is kept separately
+	// so the history sidebar can render a summary without parsing the timeline.
+	sess.MessageCount = messageCount
 	return a.store.Save(sess)
 }
 

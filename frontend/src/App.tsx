@@ -3,6 +3,7 @@ import { ProjectHeader } from './features/projects/components/ProjectHeader';
 import { ChatBubble } from './features/chat/components/ChatBubble';
 import { ChatInput } from './features/chat/components/ChatInput';
 import { ActivityCard } from './features/activity/components/ActivityCard';
+import { ErrorCard } from './features/activity/components/ErrorCard';
 import { ApprovalDialog } from './features/approvals/components/ApprovalDialog';
 import { QuestionPrompt } from './features/approvals/components/QuestionPrompt';
 import { PlanReview } from './features/approvals/components/PlanReview';
@@ -111,6 +112,9 @@ export function App() {
               }
               if (entry.type === 'tool') {
                 return <ActivityCard key={entry.id} tool={entry.tool} />;
+              }
+              if (entry.type === 'error') {
+                return <ErrorCard key={entry.id} error={entry.error} />;
               }
               if (entry.type === 'question') {
                 return (

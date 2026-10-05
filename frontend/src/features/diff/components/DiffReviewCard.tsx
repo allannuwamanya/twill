@@ -1,16 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DiffPayload } from '../../../types/events';
 import { FileChangeList } from './FileChangeList';
 import { DiffViewer } from './DiffViewer';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
-import { Columns, AlignJustify, GitPullRequest, Check, X, Send } from 'lucide-react';
+import { Columns, AlignJustify, GitPullRequest, Send } from 'lucide-react';
 import { useSessionStore } from '../../../stores/useSessionStore';
 
 interface DiffReviewCardProps {
   diff: DiffPayload;
   fileDecisions?: Record<string, boolean>;
   submitted?: boolean;
+}
+
+// A file with no recorded decision counts as accepted, matching the review UI.
+function decisionsFor(
+  files: DiffPayload['files'],
+  initial: Record<string, boolean>
+): Record<string, boolean> {
+  const next: Record<string, boolean> = { ...initial };
+  for (const f of files) {
+    if (next[f.filePath] === undefined) next[f.filePath] = true;
+  }
+  return next;
 }
 
 export const DiffReviewCard: React.FC<DiffReviewCardProps> = ({
@@ -20,18 +32,26 @@ export const DiffReviewCard: React.FC<DiffReviewCardProps> = ({
 }) => {
   const [activeFilePath, setActiveFilePath] = useState(diff.files[0]?.filePath || '');
   const [viewMode, setViewMode] = useState<'split' | 'inline'>('split');
-  const [decisions, setDecisions] = useState<Record<string, boolean>>(() => {
-    // Default all files to accepted if not yet decided
-    const init: Record<string, boolean> = { ...initialDecisions };
-    for (const f of diff.files) {
-      if (init[f.filePath] === undefined) {
-        init[f.filePath] = true;
-      }
-    }
-    return init;
-  });
+  const [decisions, setDecisions] = useState<Record<string, boolean>>(() =>
+    decisionsFor(diff.files, initialDecisions)
+  );
+  const [error, setError] = useState<string | null>(null);
 
   const { submitDiffReview } = useSessionStore();
+
+  // A useState initializer runs once. Without this, a file added to a diff after
+  // mount would have no decision and be submitted as undefined — silently
+  // dropped from the review rather than accepted or rejected.
+  useEffect(() => {
+    setDecisions((prev) => decisionsFor(diff.files, { ...prev, ...initialDecisions }));
+  }, [diff.files, initialDecisions]);
+
+  // If the selected file is gone (diff replaced), fall back to the first one.
+  useEffect(() => {
+    if (!diff.files.some((f) => f.filePath === activeFilePath)) {
+      setActiveFilePath(diff.files[0]?.filePath || '');
+    }
+  }, [diff.files, activeFilePath]);
 
   const activeFile = diff.files.find((f) => f.filePath === activeFilePath) || diff.files[0];
 
@@ -45,11 +65,7 @@ export const DiffReviewCard: React.FC<DiffReviewCardProps> = ({
 
   const handleAcceptAll = () => {
     if (submitted) return;
-    const next: Record<string, boolean> = {};
-    diff.files.forEach((f) => {
-      next[f.filePath] = true;
-    });
-    setDecisions(next);
+    setDecisions(decisionsFor(diff.files, {}));
   };
 
   const handleRejectAll = () => {
@@ -61,9 +77,15 @@ export const DiffReviewCard: React.FC<DiffReviewCardProps> = ({
     setDecisions(next);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (submitted) return;
-    submitDiffReview(diff.diffId, decisions);
+    try {
+      // Send a decision for every file; an absent key would be ignored by the
+      // backend and read as "no decision made" rather than "accepted".
+      await submitDiffReview(diff.diffId, decisionsFor(diff.files, decisions));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
   };
 
   return (
@@ -167,6 +189,12 @@ export const DiffReviewCard: React.FC<DiffReviewCardProps> = ({
           )}
         </div>
       </div>
+
+      {error && (
+        <p role="alert" className="px-3.5 py-2 text-xs text-destructive border-t border-border/70">
+          Could not submit the review: {error}
+        </p>
+      )}
     </div>
   );
 };

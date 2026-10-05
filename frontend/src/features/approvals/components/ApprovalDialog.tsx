@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ShieldAlert, Check, X, Copy, CheckCheck } from 'lucide-react';
 import { useAgentStore } from '../../../stores/useAgentStore';
 import { useSessionStore } from '../../../stores/useSessionStore';
+import { wailsBridge } from '../../../api/wailsBridge';
 import { Button } from '../../../components/ui/Button';
 
 export const ApprovalDialog: React.FC = () => {
@@ -9,9 +10,50 @@ export const ApprovalDialog: React.FC = () => {
   const { resolveApproval } = useSessionStore();
   const [alwaysAllow, setAlwaysAllow] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const requestId = pendingApproval?.requestId;
+
+  const handleDecision = useCallback(
+    async (approved: boolean) => {
+      if (!requestId || submitting) return;
+      setSubmitting(true);
+      setError(null);
+      try {
+        await resolveApproval(requestId, approved, alwaysAllow);
+      } catch (err) {
+        // Never leave the modal up on failure: it blocks the whole session and
+        // the user has no way out except a restart.
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setSubmitting(false);
+        setPendingApproval(null);
+      }
+    },
+    [requestId, submitting, alwaysAllow, resolveApproval, setPendingApproval]
+  );
+
+  // Seed the checkbox from the grant already on disk for this request's action,
+  // so an action the user previously allowed for the project is visibly remembered.
+  useEffect(() => {
+    if (!requestId) return;
+    let cancelled = false;
+    setAlwaysAllow(false);
+    setError(null);
+    setCopied(false);
+
+    wailsBridge.isActionAllowed(requestId).then((allowed) => {
+      if (!cancelled && allowed) setAlwaysAllow(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [requestId]);
 
   useEffect(() => {
-    if (!pendingApproval) return;
+    if (!requestId) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' || e.key === 'n' || e.key === 'N') {
@@ -23,14 +65,9 @@ export const ApprovalDialog: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [pendingApproval, alwaysAllow]);
+  }, [requestId, handleDecision]);
 
   if (!pendingApproval) return null;
-
-  const handleDecision = async (approved: boolean) => {
-    await resolveApproval(pendingApproval.requestId, approved, alwaysAllow);
-    setPendingApproval(null);
-  };
 
   const copyDetails = () => {
     if (!pendingApproval.details) return;
@@ -40,11 +77,12 @@ export const ApprovalDialog: React.FC = () => {
         : JSON.stringify(pendingApproval.details, null, 2);
     navigator.clipboard.writeText(text);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    clearTimeout(copiedTimer.current);
+    copiedTimer.current = setTimeout(() => setCopied(false), 2000);
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
       <div className="bg-card border border-border/90 rounded-2xl max-w-lg w-full p-5 shadow-2xl space-y-4">
         {/* Header */}
         <div className="flex items-center gap-3 text-amber-400">
@@ -84,22 +122,30 @@ export const ApprovalDialog: React.FC = () => {
           )}
         </div>
 
+        {error && (
+          <p role="alert" className="text-xs text-destructive">
+            Could not send the decision: {error}
+          </p>
+        )}
+
         {/* Footer Controls */}
         <div className="flex items-center justify-between gap-4 pt-1">
           <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
             <input
               type="checkbox"
               checked={alwaysAllow}
+              disabled={submitting}
               onChange={(e) => setAlwaysAllow(e.target.checked)}
               className="rounded border-border text-primary focus:ring-primary/30"
             />
-            <span>Always allow for this project</span>
+            <span>Always allow this exact action for this project</span>
           </label>
 
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
+              disabled={submitting}
               onClick={() => handleDecision(false)}
               className="gap-1.5"
             >
@@ -109,6 +155,7 @@ export const ApprovalDialog: React.FC = () => {
             <Button
               variant="primary"
               size="sm"
+              disabled={submitting}
               onClick={() => handleDecision(true)}
               className="gap-1.5"
             >

@@ -1,42 +1,5 @@
 export namespace domain {
 	
-	export class Message {
-	    id: string;
-	    role: string;
-	    content: string;
-	    // Go type: time
-	    timestamp: any;
-	
-	    static createFrom(source: any = {}) {
-	        return new Message(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.role = source["role"];
-	        this.content = source["content"];
-	        this.timestamp = this.convertValues(source["timestamp"], null);
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
 	export class Session {
 	    id: string;
 	    projectDir: string;
@@ -45,7 +8,7 @@ export namespace domain {
 	    createdAt: any;
 	    // Go type: time
 	    updatedAt: any;
-	    messages: Message[];
+	    messageCount: number;
 	    timeline?: string;
 	    adapterId?: string;
 	    agentSessionId?: string;
@@ -61,7 +24,7 @@ export namespace domain {
 	        this.title = source["title"];
 	        this.createdAt = this.convertValues(source["createdAt"], null);
 	        this.updatedAt = this.convertValues(source["updatedAt"], null);
-	        this.messages = this.convertValues(source["messages"], Message);
+	        this.messageCount = source["messageCount"];
 	        this.timeline = source["timeline"];
 	        this.adapterId = source["adapterId"];
 	        this.agentSessionId = source["agentSessionId"];

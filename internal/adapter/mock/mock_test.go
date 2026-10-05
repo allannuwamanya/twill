@@ -79,7 +79,12 @@ func TestMockAdapterCancellation(t *testing.T) {
 	}
 
 	time.Sleep(200 * time.Millisecond)
-	if adapter.activeTask {
+
+	// The simulation goroutine clears activeTask under the lock; read it the same way.
+	adapter.mu.Lock()
+	active := adapter.activeTask
+	adapter.mu.Unlock()
+	if active {
 		t.Errorf("expected activeTask to be false after Stop()")
 	}
 }

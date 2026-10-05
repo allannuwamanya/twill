@@ -31,7 +31,8 @@ Open a project ➔ Describe the task ➔ Review the plan ➔ Watch progress ➔ 
 
 ### 📁 Projects and Sessions
 - Open and switch between local projects.
-- Start new sessions and resume previous ones with full history.
+- Start new sessions and resume previous ones with full history, including the
+  agent's own session so it continues with its prior context.
 
 ### 💬 Chat
 - Real-time streaming responses with markdown and syntax-highlighted code.
@@ -40,26 +41,33 @@ Open a project ➔ Describe the task ➔ Review the plan ➔ Watch progress ➔ 
 ### ⚡ Live Agent Activity
 - Visual cards for each action: reading files, searching, editing, and running commands.
 - Status indicators: `thinking`, `working`, `waiting for you`, `done`, `failed`.
-- See which files are being read, created, or modified as it happens.
+- Agent errors surface in the timeline instead of disappearing.
 
 ### 🛡️ Approvals and Interaction
-- Permission dialogs that show exactly what the agent wants to do, with **Approve**, **Reject**, and **"Always allow for this project"**.
-- Agent questions presented as clear prompts with quick-select answers or free text.
-- Plan review before execution: approve, edit, or reject.
+- Permission dialogs that show exactly what the agent wants to do, with **Approve**, **Reject**, and **"Always allow this exact action for this project"**. Grants are keyed on a stable action key, so the next identical request is answered without prompting you.
+- Plan review before execution, driven by the agent's own `ExitPlanMode` call: approve, reject with feedback, or keep editing.
+- Agent questions are rendered as prompts with quick-select answers or free text.
+
+> **Note:** Questions are currently only produced by the mock adapter. The
+> Claude Code CLI does not emit a structured question event, so the question UI
+> is wired and tested but not yet reachable with the real agent.
 
 ### 🔍 Code Review
-- Side-by-side and inline diffs for every change.
-- Per-file summaries, with accept or reject at the file level.
+- Real unified diffs (LCS-based, 3 lines of context) for `Edit`, `Write`, and `MultiEdit`.
+- Side-by-side and inline views, with per-file accept or reject.
 
 ### ⏯️ Task Control
-- Stop, pause, and continue at any point.
+- Stop at any point; the composer always unlocks.
 - Clear recovery when a task is interrupted or fails.
 
 ---
 
 ## How It Works
 
-Twill runs the agent on your machine and talks to it through its SDK or structured (JSON) streaming output, never by scraping terminal text. Every message, tool call, and permission request arrives as typed data, and Twill maps each one to a dedicated UI component:
+Twill runs the agent on your machine and talks to it over the Claude Code CLI's
+structured JSON streaming protocol (`--output-format=stream-json`), never by
+scraping terminal text. Every message, tool call, and permission request arrives
+as typed data, and Twill maps each one to a dedicated UI component:
 
 | Agent Event | Twill UI |
 | :--- | :--- |
@@ -67,8 +75,14 @@ Twill runs the agent on your machine and talks to it through its SDK or structur
 | **Tool call** | Activity card |
 | **Permission request** | Approval dialog |
 | **Question** | Prompt with quick answers |
-| **Plan** | Plan review view |
-| **File edit** | Diff view |
+| **Plan** (`ExitPlanMode`) | Plan review view |
+| **File edit** (`Edit`/`Write`/`MultiEdit`) | Diff view |
+| **Error** | Error card |
+
+Permissions and plan approvals are not chat messages. They arrive as
+`control_request` frames on the CLI's stdio and are answered with a
+`control_response` on the same channel, so the agent stays blocked until you
+decide.
 
 A thin adapter layer sits between the agent and the UI, so changes to an agent's event format only need to be fixed in one place.
 
@@ -82,13 +96,15 @@ A thin adapter layer sits between the agent and the UI, so changes to an agent's
 - Project selection
 - AI chat with real-time streaming
 - Agent activity display
-- Tool and action approvals
-- Agent questions
-- Plan approval
+- Tool and action approvals, with remembered per-project grants
+- Agent questions *(mock adapter only — see the note above)*
+- Plan approval via `ExitPlanMode`
 - Code changes and diff view
 - Session history and resume
 - Stop and continue
-- Basic settings (model, default permissions, theme)
+
+### Not Yet Built
+- Basic settings (model selection, default permissions, theme toggle)
 
 ### Out of Scope for v1
 - Built-in code editor
@@ -136,16 +152,65 @@ To run Twill from source, see [Development](#development).
 
 ## Development
 
-Setup details will be finalized once the stack is initialized. Twill is planned as a cross-platform desktop shell (Tauri or Electron) with a web-based UI.
+Twill is a [Wails v2](https://wails.io) app: a Go backend with a React + TypeScript
+frontend rendered in the native webview. It is not Tauri or Electron.
+
+### Prerequisites
+
+- Go 1.23+
+- Node 18+
+- [Wails CLI](https://wails.io/docs/gettingstarted/installation) (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
+- The [`claude`](https://claude.com/claude-code) CLI, installed and authenticated,
+  if you want to use the real agent rather than the mock
+
+### Commands
 
 ```bash
-# Clone the repository
 git clone https://github.com/allannuwamanya/twill.git
 cd twill
 
-# Install dependencies and start the app in dev mode
-# (commands will be updated once initialized)
+wails dev            # run the app with live reload
+wails build          # produce a platform binary in build/bin/
+
+cd frontend
+npm install
+npm run dev          # frontend only, in a browser (no Go backend)
+npm run build        # typecheck + production bundle
+npm run test         # vitest unit tests
 ```
+
+After changing Go methods on `App`, regenerate the JS bindings with
+`wails generate module` — `frontend/wailsjs/go/` is generated, not hand-written.
+
+### Verifying a change
+
+```bash
+go vet ./...
+go test -race ./...
+cd frontend && npx tsc --noEmit && npm run test
+```
+
+### Architecture
+
+Ports-and-adapters (hexagonal). Dependencies point inward:
+
+```
+app.go  (Wails bindings, orchestration)
+   │
+   ├── internal/adapter   ← registry + agent adapters (claude, mock)
+   │        implements domain.Agent, emits domain.Event
+   │
+   ├── internal/domain    ← PURE Go. Zero imports from the rest of the repo.
+   │        events, sessions, permissions, adapter interface
+   │
+   └── internal/storage   ← session persistence
+```
+
+`internal/domain` must stay free of intra-repo imports. It is the shared
+vocabulary between the Go backend and the agent protocol; the moment it imports
+`internal/adapter`, the layering is broken.
+
+See [CLAUDE.md](CLAUDE.md) for the conventions to follow when contributing.
 
 ---
 

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Send, Square } from 'lucide-react';
 import { useSessionStore } from '../../../stores/useSessionStore';
 import { useProjectStore } from '../../../stores/useProjectStore';
@@ -10,26 +10,28 @@ export const ChatInput: React.FC = () => {
   const { sendPrompt, isStreaming, stopTask } = useSessionStore();
   const { projectDir, selectProject } = useProjectStore();
   const { status } = useAgentStore();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isBusy = isStreaming || status === 'working' || status === 'thinking';
 
-  const handleSubmit = (e?: React.FormEvent) => {
+  const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!prompt.trim() || isBusy) return;
 
+    const text = prompt.trim();
+
+    // No project yet: ask for one first, then send only if the user picked one.
     if (!projectDir) {
-      selectProject().then((dir) => {
-        if (dir) {
-          sendPrompt(prompt.trim());
-          setPrompt('');
-        }
-      });
-      return;
+      try {
+        const dir = await selectProject();
+        if (!dir) return;
+      } catch (err) {
+        console.error('Failed to select project directory:', err);
+        return;
+      }
     }
 
-    sendPrompt(prompt.trim());
     setPrompt('');
+    await sendPrompt(text);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -43,10 +45,10 @@ export const ChatInput: React.FC = () => {
     <div className="p-4 border-t border-border/60 bg-card/40 backdrop-blur-sm shrink-0">
       <div className="max-w-4xl mx-auto relative rounded-2xl border border-border/80 bg-card/90 shadow-sm focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/20 transition-all p-2">
         <textarea
-          ref={textareaRef}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={handleKeyDown}
+          aria-label="Task for the coding agent"
           placeholder={
             !projectDir
               ? 'Select a project folder above or type a task to start...'

@@ -13,13 +13,27 @@ interface PlanReviewProps {
 export const PlanReview: React.FC<PlanReviewProps> = ({ plan, approved }) => {
   const [feedback, setFeedback] = useState('');
   const [showFeedback, setShowFeedback] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { submitPlanDecision } = useSessionStore();
 
-  const isDecided = approved !== undefined;
+  // Only a real boolean is a decision. `undefined` means the plan has not been
+  // answered yet and must still show its action buttons.
+  const isDecided = typeof approved === 'boolean';
 
-  const handleDecision = (decision: boolean) => {
-    submitPlanDecision(plan.planId, decision, feedback.trim());
-    setShowFeedback(false);
+  const handleDecision = async (decision: boolean) => {
+    if (submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await submitPlanDecision(plan.planId, decision, feedback.trim());
+      setShowFeedback(false);
+    } catch (err) {
+      // Leaving the buttons usable lets the user retry instead of being stuck.
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const getStepIcon = (status: string) => {
@@ -126,6 +140,7 @@ export const PlanReview: React.FC<PlanReviewProps> = ({ plan, approved }) => {
               <Button
                 variant="outline"
                 size="sm"
+                disabled={submitting}
                 onClick={() => handleDecision(false)}
                 className="gap-1.5"
               >
@@ -135,6 +150,7 @@ export const PlanReview: React.FC<PlanReviewProps> = ({ plan, approved }) => {
               <Button
                 variant="primary"
                 size="sm"
+                disabled={submitting}
                 onClick={() => handleDecision(true)}
                 className="gap-1.5"
               >
@@ -143,6 +159,12 @@ export const PlanReview: React.FC<PlanReviewProps> = ({ plan, approved }) => {
               </Button>
             </div>
           </div>
+
+          {error && (
+            <p role="alert" className="text-xs text-destructive">
+              Could not send the decision: {error}
+            </p>
+          )}
         </div>
       )}
     </div>

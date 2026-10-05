@@ -1,13 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { MessageSquare, Plus, Trash2 } from 'lucide-react';
 import { useHistoryStore } from '../../../stores/useHistoryStore';
 import { useSessionStore } from '../../../stores/useSessionStore';
 import { useProjectStore } from '../../../stores/useProjectStore';
 
-function relativeTime(iso: string): string {
+function relativeTime(iso: string, now: number): string {
   const t = new Date(iso).getTime();
   if (!t || Number.isNaN(t)) return '';
-  const mins = Math.floor((Date.now() - t) / 60000);
+  const mins = Math.floor((now - t) / 60000);
   if (mins < 1) return 'just now';
   if (mins < 60) return `${mins}m ago`;
   const hours = Math.floor(mins / 60);
@@ -21,11 +21,19 @@ export function HistorySidebar() {
   const { sessions, loaded, refresh, remove } = useHistoryStore();
   const { sessionId, isStreaming, initSession, loadSession, persist } = useSessionStore();
   const { projectDir, setProjectDir } = useProjectStore();
+  // Relative times are computed once per render, so without a ticking "now"
+  // they froze at whatever the last re-render happened to be.
+  const [now, setNow] = useState(() => Date.now());
 
   // Reload the list on mount and whenever the project changes.
   useEffect(() => {
     refresh();
   }, [refresh, projectDir]);
+
+  useEffect(() => {
+    const handle = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(handle);
+  }, []);
 
   const busy = isStreaming;
 
@@ -43,7 +51,12 @@ export function HistorySidebar() {
 
   const onNew = async () => {
     if (busy) return;
-    await persist();
+    try {
+      await persist();
+    } catch (err) {
+      // A failed flush must not block starting a new session.
+      console.error('Failed to save current session:', err);
+    }
     initSession();
     refresh();
   };
@@ -51,8 +64,14 @@ export function HistorySidebar() {
   const onDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (busy) return;
-    await remove(id);
-    if (id === sessionId) initSession();
+    try {
+      await remove(id);
+      if (id === sessionId) initSession();
+      refresh();
+    } catch (err) {
+      console.error('Failed to delete session:', err);
+      refresh();
+    }
   };
 
   return (
@@ -92,7 +111,7 @@ export function HistorySidebar() {
               <div className="min-w-0 flex-1">
                 <div className="text-sm truncate">{s.title || 'Untitled session'}</div>
                 <div className="text-[11px] text-muted-foreground truncate">
-                  {relativeTime(s.updatedAt)}
+                  {relativeTime(s.updatedAt, now)}
                   {!projectDir && s.projectDir ? ` · ${s.projectDir.split('/').filter(Boolean).pop()}` : ''}
                 </div>
               </div>

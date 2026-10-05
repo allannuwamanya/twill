@@ -9,21 +9,22 @@ import (
 	"twill/internal/domain"
 )
 
-// Registry manages available agent adapters.
+// Registry manages available agent adapters and fans their events out to subscribers.
 type Registry struct {
 	mu       sync.RWMutex
 	adapters map[string]domain.AgentAdapter
 	active   string
+	subs     []chan domain.Event
 }
 
 // NewRegistry initializes an adapter registry with default mock and claude adapters.
-func NewRegistry() *Registry {
+func NewRegistry(permissions *domain.PermissionStore) *Registry {
 	r := &Registry{
 		adapters: make(map[string]domain.AgentAdapter),
 	}
 
 	mockAdapter := mock.NewMockAdapter()
-	claudeAdapter := claude.NewClaudeAdapter()
+	claudeAdapter := claude.NewClaudeAdapter(permissions)
 
 	r.Register(mockAdapter)
 	r.Register(claudeAdapter)
@@ -34,10 +35,44 @@ func NewRegistry() *Registry {
 	return r
 }
 
+// Register adds an adapter and starts pumping its events into the fan-in.
 func (r *Registry) Register(a domain.AgentAdapter) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	r.adapters[a.ID()] = a
+	r.mu.Unlock()
+
+	go func() {
+		// Adapter event channels are never closed; this goroutine lives as long as the registry.
+		for evt := range a.Events() {
+			r.publish(evt)
+		}
+	}()
+}
+
+// Subscribe returns a channel receiving events from every registered adapter.
+// Subscribers receive events from all adapters, not just the active one, so that
+// switching adapters mid-task cannot strand a running agent's events.
+func (r *Registry) Subscribe() <-chan domain.Event {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	ch := make(chan domain.Event, 256)
+	r.subs = append(r.subs, ch)
+	return ch
+}
+
+// publish fans an event out to all subscribers, skipping any that are not keeping up.
+// Blocking here would stall the adapter's stdout reader and ultimately the agent process.
+func (r *Registry) publish(evt domain.Event) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	for _, ch := range r.subs {
+		select {
+		case ch <- evt:
+		default:
+		}
+	}
 }
 
 func (r *Registry) SetActive(id string) error {

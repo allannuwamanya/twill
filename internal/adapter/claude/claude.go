@@ -24,10 +24,16 @@ type ClaudeAdapter struct {
 	cancelFunc context.CancelFunc
 	activeTask bool
 	cliPath    string
+	// sessionID and projectDir describe the running task; Stop needs the former to
+	// emit a terminal event and permission checks need the latter.
+	sessionID  string
+	projectDir string
 	// pending maps permission request IDs to the tool input to echo back on approval.
 	pending map[string]map[string]interface{}
 	// resumeID is the Claude session to resume on the next Start ("" = fresh session).
 	resumeID string
+	// permissions holds per-project "always allow" grants. May be nil.
+	permissions *domain.PermissionStore
 }
 
 // SetResumeID sets the Claude session ID that the next Start will resume.
@@ -37,10 +43,12 @@ func (c *ClaudeAdapter) SetResumeID(id string) {
 	c.resumeID = id
 }
 
-// NewClaudeAdapter initializes a new ClaudeAdapter.
-func NewClaudeAdapter() *ClaudeAdapter {
+// NewClaudeAdapter initializes a new ClaudeAdapter. The permission store may be nil,
+// in which case every tool request is escalated to the user.
+func NewClaudeAdapter(permissions *domain.PermissionStore) *ClaudeAdapter {
 	return &ClaudeAdapter{
-		eventsChan: make(chan domain.Event, 100),
+		eventsChan:  make(chan domain.Event, 256),
+		permissions: permissions,
 	}
 }
 
@@ -56,8 +64,9 @@ func (c *ClaudeAdapter) Events() <-chan domain.Event {
 	return c.eventsChan
 }
 
-// LocateCLI attempts to find the claude binary.
-func (c *ClaudeAdapter) LocateCLI() (string, error) {
+// locateCLI finds the claude binary, caching the result.
+// Caller must hold c.mu (it mutates cliPath).
+func (c *ClaudeAdapter) locateCLI() (string, error) {
 	if c.cliPath != "" {
 		return c.cliPath, nil
 	}
@@ -76,7 +85,7 @@ func (c *ClaudeAdapter) Start(parentCtx context.Context, sessionID string, proje
 		return fmt.Errorf("a task is already in progress")
 	}
 
-	cliPath, err := c.LocateCLI()
+	cliPath, err := c.locateCLI()
 	if err != nil {
 		c.mu.Unlock()
 		return err
@@ -85,6 +94,8 @@ func (c *ClaudeAdapter) Start(parentCtx context.Context, sessionID string, proje
 	ctx, cancel := context.WithCancel(parentCtx)
 	c.cancelFunc = cancel
 	c.activeTask = true
+	c.sessionID = sessionID
+	c.projectDir = projectDir
 
 	// Headless structured streaming; permission prompts are routed to us over stdio.
 	args := []string{
@@ -101,37 +112,49 @@ func (c *ClaudeAdapter) Start(parentCtx context.Context, sessionID string, proje
 	cmd := exec.CommandContext(ctx, cliPath, args...)
 	cmd.Dir = projectDir
 
+	// abortStart undoes everything set above and releases c.mu. Every failure path
+	// below must go through it: leaving activeTask set would make the adapter
+	// reject every future Start for the lifetime of the process.
+	abortStart := func() {
+		cancel()
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		c.activeTask = false
+		c.cancelFunc = nil
+		c.cmd = nil
+		c.stdin = nil
+		c.mu.Unlock()
+	}
+
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		c.activeTask = false
-		c.mu.Unlock()
+		abortStart()
 		return fmt.Errorf("failed to open stdin pipe: %w", err)
 	}
 	c.stdin = stdin
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		c.activeTask = false
-		c.mu.Unlock()
+		abortStart()
 		return fmt.Errorf("failed to open stdout pipe: %w", err)
 	}
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		c.activeTask = false
-		c.mu.Unlock()
+		abortStart()
 		return fmt.Errorf("failed to open stderr pipe: %w", err)
 	}
 
 	if err := cmd.Start(); err != nil {
-		c.activeTask = false
-		c.mu.Unlock()
+		abortStart()
 		return fmt.Errorf("failed to start claude process: %w", err)
 	}
 	c.cmd = cmd
 	c.pending = map[string]map[string]interface{}{}
+
 	if err := c.writeJSON(userMessage(prompt)); err != nil {
-		c.mu.Unlock()
+		abortStart()
 		return fmt.Errorf("failed to send prompt: %w", err)
 	}
 	c.mu.Unlock()
@@ -148,7 +171,8 @@ func (c *ClaudeAdapter) Start(parentCtx context.Context, sessionID string, proje
 
 func (c *ClaudeAdapter) Stop() error {
 	c.mu.Lock()
-	defer c.mu.Unlock()
+	wasActive := c.activeTask
+	sessionID := c.sessionID
 
 	if c.cancelFunc != nil {
 		c.cancelFunc()
@@ -158,6 +182,15 @@ func (c *ClaudeAdapter) Stop() error {
 		_ = c.cmd.Process.Kill()
 	}
 	c.activeTask = false
+	c.mu.Unlock()
+
+	// The process is gone, so no terminal event will arrive on stdout. Without this
+	// the frontend stays in "working" forever and the composer never re-enables.
+	if wasActive {
+		c.emit(sessionID, domain.EventStatusChange, domain.StatusPayload{
+			Status: domain.StatusTerminated, Message: "Stopped by user",
+		})
+	}
 	return nil
 }
 
@@ -193,17 +226,33 @@ func (c *ClaudeAdapter) SendAnswer(questionID string, answer string) error {
 	return c.writeJSON(userMessage(answer))
 }
 
+// SendPlanDecision approves or rejects a submitted plan. Plan approval arrives as
+// a can_use_tool control request, so it is answered on the same channel as any
+// other tool rather than by chatting about it.
 func (c *ClaudeAdapter) SendPlanDecision(planID string, approved bool, feedback string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	text := "Plan rejected."
+	var decision map[string]interface{}
 	if approved {
-		text = "Plan approved. Please proceed."
-	} else if feedback != "" {
-		text = feedback
+		decision = map[string]interface{}{"behavior": "allow"}
+	} else {
+		reason := feedback
+		if reason == "" {
+			reason = "The user rejected this plan in Twill."
+		}
+		decision = map[string]interface{}{"behavior": "deny", "message": reason}
 	}
-	return c.writeJSON(userMessage(text))
+
+	delete(c.pending, planID)
+	return c.writeJSON(map[string]interface{}{
+		"type": "control_response",
+		"response": map[string]interface{}{
+			"subtype":    "success",
+			"request_id": planID,
+			"response":   decision,
+		},
+	})
 }
 
 func (c *ClaudeAdapter) SendDiffDecision(diffID string, decisions map[string]bool) error {
@@ -222,13 +271,18 @@ func (c *ClaudeAdapter) SendDiffDecision(diffID string, decisions map[string]boo
 	return c.writeJSON(userMessage("The user rejected your changes to: " + strings.Join(rejected, ", ") + ". Please revert them."))
 }
 
+// emit publishes an event, dropping it if the consumer is not keeping up.
+// Blocking here would stall the stdout reader and, behind it, the agent process.
 func (c *ClaudeAdapter) emit(sessionID string, eventType domain.EventType, payload interface{}) {
-	c.eventsChan <- domain.Event{
+	select {
+	case c.eventsChan <- domain.Event{
 		ID:        fmt.Sprintf("evt_%d", time.Now().UnixNano()),
 		SessionID: sessionID,
 		Type:      eventType,
 		Timestamp: time.Now(),
 		Payload:   payload,
+	}:
+	default:
 	}
 }
 
@@ -241,6 +295,9 @@ func (c *ClaudeAdapter) readStream(sessionID string, stdout io.Reader) {
 			continue
 		}
 		if res.PermissionRequestID != "" {
+			if c.autoApprove(sessionID, res) {
+				continue
+			}
 			c.mu.Lock()
 			if c.pending == nil {
 				c.pending = map[string]map[string]interface{}{}
@@ -261,6 +318,36 @@ func (c *ClaudeAdapter) readStream(sessionID string, stdout io.Reader) {
 			c.mu.Unlock()
 		}
 	}
+}
+
+// autoApprove answers a tool request immediately when the user previously chose
+// "always allow" for this exact action in this project. It reports whether the
+// request was handled, in which case no approval prompt is surfaced.
+func (c *ClaudeAdapter) autoApprove(sessionID string, res ParseResult) bool {
+	// Plan review is never skippable, whatever the user has previously granted.
+	if res.PermissionToolName == planToolName {
+		return false
+	}
+
+	key := domain.ActionKey(res.PermissionToolName, res.PermissionInput)
+
+	c.mu.Lock()
+	perms, projectDir := c.permissions, c.projectDir
+	c.mu.Unlock()
+
+	if perms == nil || projectDir == "" || !perms.IsActionAllowed(projectDir, key) {
+		return false
+	}
+
+	// The tool_use block still reaches the timeline through the normal assistant
+	// message, so the user still sees the action; only the modal is skipped.
+	if err := c.SendApproval(res.PermissionRequestID, true, false); err != nil {
+		return false
+	}
+	c.emit(sessionID, domain.EventStatusChange, domain.StatusPayload{
+		Status: domain.StatusWorking, Message: "Auto-approved: " + key,
+	})
+	return true
 }
 
 // writeJSON writes one newline-terminated JSON message to the CLI's stdin.

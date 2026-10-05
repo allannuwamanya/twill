@@ -3,6 +3,7 @@ import { wailsBridge } from '../api/wailsBridge';
 import { useProjectStore } from './useProjectStore';
 import {
   Event,
+  ErrorPayload,
   MessageChunkPayload,
   ToolCallPayload,
   StatusPayload,
@@ -18,10 +19,24 @@ export type TimelineEntry =
   | { id: string; type: 'question'; question: QuestionPayload; answered?: boolean; selectedAnswer?: string; timestamp: string }
   | { id: string; type: 'plan'; plan: PlanPayload; approved?: boolean; timestamp: string }
   | { id: string; type: 'approval'; request: PermissionRequestPayload; resolved?: boolean; approved?: boolean; timestamp: string }
-  | { id: string; type: 'diff'; diff: DiffPayload; fileDecisions?: Record<string, boolean>; submitted?: boolean; timestamp: string };
+  | { id: string; type: 'diff'; diff: DiffPayload; fileDecisions?: Record<string, boolean>; submitted?: boolean; timestamp: string }
+  | { id: string; type: 'error'; error: ErrorPayload; timestamp: string };
 
 // Last timeline reference written to disk (or loaded from it); avoids redundant saves.
 let lastPersisted: TimelineEntry[] | null = null;
+
+let idCounter = 0;
+
+// Date.now() alone collides when two sessions are created within the same
+// millisecond, which overwrites the first on disk. randomUUID is unavailable
+// outside secure contexts, so fall back to a monotonic counter.
+function newId(prefix: string): string {
+  const uuid =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now().toString(36)}-${(++idCounter).toString(36)}`;
+  return `${prefix}_${uuid}`;
+}
 
 interface SessionState {
   sessionId: string;
@@ -51,11 +66,12 @@ interface SessionState {
   resolveApproval: (requestId: string, approved: boolean, alwaysAllow?: boolean) => Promise<void>;
   addDiff: (diff: DiffPayload) => void;
   submitDiffReview: (diffId: string, decisions: Record<string, boolean>) => Promise<void>;
+  addError: (error: ErrorPayload) => void;
   handleEvent: (event: Event) => void;
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
-  sessionId: `sess_${Date.now()}`,
+  sessionId: newId('sess'),
   title: '',
   sessionProjectDir: '',
   timeline: [],
@@ -66,7 +82,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   initSession: (id) => {
     lastPersisted = null;
     set({
-      sessionId: id || `sess_${Date.now()}`,
+      sessionId: id || newId('sess'),
       title: '',
       sessionProjectDir: '',
       timeline: [],
@@ -80,14 +96,14 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     if (!prompt.trim()) return;
 
     const userEntry: TimelineEntry = {
-      id: `msg_${Date.now()}`,
+      id: newId('msg'),
       type: 'message',
       role: 'user',
       content: prompt.trim(),
       timestamp: new Date().toISOString(),
     };
 
-    const streamId = `agent_${Date.now()}`;
+    const streamId = newId('agent');
 
     set((state) => ({
       timeline: [...state.timeline, userEntry],
@@ -306,6 +322,26 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }));
   },
 
+  addError: (error) => {
+    // stderr can repeat the same line; one entry per unique message keeps a
+    // chatty failure from burying the conversation.
+    const last = get().timeline[get().timeline.length - 1];
+    if (last && last.type === 'error' && last.error.message === error.message) {
+      return;
+    }
+    set((state) => ({
+      timeline: [
+        ...state.timeline,
+        {
+          id: newId('err'),
+          type: 'error',
+          error,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    }));
+  },
+
   persist: async () => {
     const { sessionId, timeline, title } = get();
     // Skip empty sessions and unchanged (e.g. just-loaded) timelines.
@@ -382,9 +418,19 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         get().addToolCall(payload);
         break;
       }
+      case 'tool_progress': {
+        // Partial output for an in-flight tool; merge it without changing status.
+        const payload = event.payload as ToolCallPayload;
+        get().updateToolCall({ ...payload, status: 'running' });
+        break;
+      }
       case 'tool_end': {
         const payload = event.payload as ToolCallPayload;
         get().updateToolCall(payload);
+        break;
+      }
+      case 'error': {
+        get().addError(event.payload as ErrorPayload);
         break;
       }
       case 'question': {

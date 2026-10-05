@@ -10,6 +10,8 @@ export function GetAllowedActions(arg1:string):Promise<Array<string>>;
 
 export function GetProjectDirectory():Promise<string>;
 
+export function IsActionAllowed(arg1:string):Promise<boolean>;
+
 export function ListAdapters():Promise<Array<Record<string, string>>>;
 
 export function ListSessions():Promise<Array<domain.SessionSummary>>;

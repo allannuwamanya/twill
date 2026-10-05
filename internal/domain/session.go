@@ -2,23 +2,6 @@ package domain
 
 import "time"
 
-// MessageRole defines who authored the message.
-type MessageRole string
-
-const (
-	RoleUser      MessageRole = "user"
-	RoleAssistant MessageRole = "assistant"
-	RoleSystem    MessageRole = "system"
-)
-
-// Message represents a persisted chat message.
-type Message struct {
-	ID        string      `json:"id"`
-	Role      MessageRole `json:"role"`
-	Content   string      `json:"content"`
-	Timestamp time.Time   `json:"timestamp"`
-}
-
 // Session represents a work session associated with a local project folder.
 type Session struct {
 	ID         string    `json:"id"`
@@ -26,7 +9,9 @@ type Session struct {
 	Title      string    `json:"title"`
 	CreatedAt  time.Time `json:"createdAt"`
 	UpdatedAt  time.Time `json:"updatedAt"`
-	Messages   []Message `json:"messages"`
+	// MessageCount is the number of chat messages in Timeline. The messages
+	// themselves live in Timeline; storing them twice is what this replaced.
+	MessageCount int `json:"messageCount"`
 	// Timeline is the UI timeline (messages, tool cards, diffs, ...) serialized as JSON,
 	// so a resumed session looks exactly as it did when it was saved.
 	Timeline string `json:"timeline,omitempty"`
@@ -52,7 +37,7 @@ func (s *Session) Summary() SessionSummary {
 		ProjectDir:   s.ProjectDir,
 		Title:        s.Title,
 		UpdatedAt:    s.UpdatedAt,
-		MessageCount: len(s.Messages),
+		MessageCount: s.MessageCount,
 	}
 }
 

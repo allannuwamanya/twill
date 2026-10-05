@@ -46,8 +46,17 @@ export const FileChangeList: React.FC<FileChangeListProps> = ({
           return (
             <div
               key={file.filePath}
+              role="button"
+              tabIndex={0}
+              aria-pressed={isActive}
               onClick={() => onSelectFile(file.filePath)}
-              className={`group flex items-center justify-between p-2 rounded-lg text-xs cursor-pointer transition-colors ${
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onSelectFile(file.filePath);
+                }
+              }}
+              className={`group flex items-center justify-between p-2 rounded-lg text-xs cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
                 isActive
                   ? 'bg-card border border-border shadow-xs text-foreground font-medium'
                   : 'hover:bg-muted/50 text-muted-foreground hover:text-foreground'
@@ -80,6 +89,8 @@ export const FileChangeList: React.FC<FileChangeListProps> = ({
                   <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => onFileDecision(file.filePath, false)}
+                      aria-label={`Reject changes to ${basename}`}
+                      aria-pressed={decision === false}
                       className={`p-1 rounded transition-colors cursor-pointer ${
                         decision === false
                           ? 'bg-rose-500/20 text-rose-400'
@@ -91,6 +102,8 @@ export const FileChangeList: React.FC<FileChangeListProps> = ({
                     </button>
                     <button
                       onClick={() => onFileDecision(file.filePath, true)}
+                      aria-label={`Accept changes to ${basename}`}
+                      aria-pressed={decision === true}
                       className={`p-1 rounded transition-colors cursor-pointer ${
                         decision === true
                           ? 'bg-emerald-500/20 text-emerald-400'

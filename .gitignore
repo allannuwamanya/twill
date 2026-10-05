@@ -11,6 +11,9 @@ node_modules/
 .npm
 .pnpm-debug.log*
 
+# Wails writes this to decide whether to reinstall frontend deps
+frontend/package.json.md5
+
 # OS & Editors
 .DS_Store
 Thumbs.db

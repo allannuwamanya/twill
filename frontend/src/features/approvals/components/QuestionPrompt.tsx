@@ -16,18 +16,31 @@ export const QuestionPrompt: React.FC<QuestionPromptProps> = ({
   selectedAnswer,
 }) => {
   const [customText, setCustomText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { answerQuestion } = useSessionStore();
 
-  const handleSelect = (answer: string) => {
-    if (answered) return;
-    answerQuestion(question.questionId, answer);
+  // `answered` only flips after the round-trip, so without a local guard a
+  // second click sends the same answer twice.
+  const answer = async (value: string) => {
+    if (answered || submitting || !value) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await answerQuestion(question.questionId, value);
+      setCustomText('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  const handleSelect = (value: string) => answer(value);
 
   const handleCustomSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (answered || !customText.trim()) return;
-    answerQuestion(question.questionId, customText.trim());
-    setCustomText('');
+    answer(customText.trim());
   };
 
   return (
@@ -58,8 +71,9 @@ export const QuestionPrompt: React.FC<QuestionPromptProps> = ({
               {question.options.map((opt) => (
                 <button
                   key={opt.id}
+                  disabled={submitting}
                   onClick={() => handleSelect(opt.label)}
-                  className="px-3 py-1.5 rounded-lg border border-border/80 bg-card hover:bg-muted/80 hover:border-primary/50 text-xs text-foreground font-medium transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  className="px-3 py-1.5 rounded-lg border border-border/80 bg-card hover:bg-muted/80 hover:border-primary/50 text-xs text-foreground font-medium transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   <span>{opt.label}</span>
                 </button>
@@ -73,15 +87,29 @@ export const QuestionPrompt: React.FC<QuestionPromptProps> = ({
               <input
                 type="text"
                 value={customText}
+                disabled={submitting}
                 onChange={(e) => setCustomText(e.target.value)}
+                aria-label="Custom reply"
                 placeholder="Or type a custom reply..."
                 className="flex-1 bg-card border border-border/80 rounded-lg px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/20"
               />
-              <Button variant="primary" size="sm" type="submit" disabled={!customText.trim()} className="gap-1">
+              <Button
+                variant="primary"
+                size="sm"
+                type="submit"
+                disabled={submitting || !customText.trim()}
+                className="gap-1"
+              >
                 <Send className="w-3 h-3" />
                 Reply
               </Button>
             </form>
+          )}
+
+          {error && (
+            <p role="alert" className="text-xs text-destructive">
+              Could not send your answer: {error}
+            </p>
           )}
         </div>
       )}

@@ -1,5 +1,16 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, Terminal, FileText, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  Terminal,
+  FileText,
+  FileSearch,
+  Globe,
+  ListTodo,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+} from 'lucide-react';
 import { ToolCallPayload } from '../../../types/events';
 
 interface ActivityCardProps {
@@ -9,15 +20,27 @@ interface ActivityCardProps {
 export const ActivityCard: React.FC<ActivityCardProps> = ({ tool }) => {
   const [expanded, setExpanded] = useState(false);
 
+  // The CLI emits camelCase tool names; matching snake_case meant every card
+  // fell through to the default icon.
   const getToolIcon = () => {
-    switch (tool.toolName.toLowerCase()) {
-      case 'read_file':
-      case 'edit_file':
-      case 'write_file':
-        return <FileText className="w-4 h-4 text-sky-400" />;
-      case 'bash':
-      case 'exec':
+    switch (tool.toolName) {
+      case 'Read':
+      case 'NotebookRead':
+        return <FileSearch className="w-4 h-4 text-sky-400" />;
+      case 'Write':
+      case 'Edit':
+      case 'MultiEdit':
+      case 'NotebookEdit':
+        return <FileText className="w-4 h-4 text-amber-400" />;
+      case 'Bash':
+      case 'BashOutput':
         return <Terminal className="w-4 h-4 text-emerald-400" />;
+      case 'WebFetch':
+      case 'WebSearch':
+        return <Globe className="w-4 h-4 text-violet-400" />;
+      case 'TodoWrite':
+      case 'ExitPlanMode':
+        return <ListTodo className="w-4 h-4 text-primary" />;
       default:
         return <Terminal className="w-4 h-4 text-primary" />;
     }

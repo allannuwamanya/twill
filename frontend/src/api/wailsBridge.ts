@@ -61,6 +61,14 @@ export const wailsBridge = {
     }
   },
 
+  isActionAllowed: async (requestId: string): Promise<boolean> => {
+    try {
+      return await AppGo.IsActionAllowed(requestId);
+    } catch {
+      return false;
+    }
+  },
+
   // Session history & persistence
   saveSession: async (id: string, title: string, messageCount: number, timelineJson: string): Promise<void> => {
     return AppGo.SaveSession(id, title, messageCount, timelineJson);

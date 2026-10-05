@@ -18,6 +18,10 @@ export function GetProjectDirectory() {
   return window['go']['main']['App']['GetProjectDirectory']();
 }
 
+export function IsActionAllowed(arg1) {
+  return window['go']['main']['App']['IsActionAllowed'](arg1);
+}
+
 export function ListAdapters() {
   return window['go']['main']['App']['ListAdapters']();
 }

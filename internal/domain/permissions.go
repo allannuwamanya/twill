@@ -1,15 +1,41 @@
 package domain
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
+// ActionKey derives a stable identity for a tool invocation.
+//
+// Permission grants must outlive the individual request that created them, so they
+// cannot be keyed on request IDs (unique per request) or raw arguments (which vary
+// in whitespace). Callers use this both when granting and when checking.
+func ActionKey(toolName string, input map[string]interface{}) string {
+	switch toolName {
+	case "Bash":
+		if cmd, ok := input["command"].(string); ok {
+			return "Bash:" + strings.Join(strings.Fields(cmd), " ")
+		}
+	case "WebFetch":
+		if url, ok := input["url"].(string); ok {
+			return "WebFetch:" + url
+		}
+	case "Read", "Write", "Edit", "MultiEdit", "NotebookEdit":
+		if path, ok := input["file_path"].(string); ok {
+			return toolName + ":" + filepath.Clean(path)
+		}
+	}
+	return toolName
+}
+
 // ProjectPermissions tracks allowed actions for a specific project directory.
 type ProjectPermissions struct {
-	ProjectDir    string          `json:"projectDir"`
+	ProjectDir     string          `json:"projectDir"`
 	AllowedActions map[string]bool `json:"allowedActions"`
 }
 
@@ -39,18 +65,34 @@ func NewPermissionStore(customDir ...string) (*PermissionStore, error) {
 	return &PermissionStore{baseDir: dir}, nil
 }
 
+// fileName maps a project directory to a filename. Sanitizing alone is not enough:
+// "/a/b" and "/a\b" both reduce to "_a_b", so two projects would share one file.
+// The sanitized path is kept as a readable prefix and a hash of the full path
+// disambiguates.
 func (s *PermissionStore) fileName(projectDir string) string {
 	clean := filepath.Clean(projectDir)
-	// Replace slashes with underscores for a safe filename
-	safeName := ""
+
+	var safe strings.Builder
 	for _, r := range clean {
-		if r == '/' || r == '\\' || r == ':' {
-			safeName += "_"
-		} else {
-			safeName += string(r)
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9',
+			r == '-', r == '_', r == '.':
+			safe.WriteRune(r)
+		default:
+			safe.WriteRune('_')
 		}
 	}
-	return filepath.Join(s.baseDir, safeName+".json")
+
+	prefix := safe.String()
+	if len(prefix) > 40 {
+		prefix = prefix[:40]
+	}
+	if prefix == "" {
+		prefix = "project"
+	}
+
+	sum := sha256.Sum256([]byte(clean))
+	return filepath.Join(s.baseDir, prefix+"-"+hex.EncodeToString(sum[:])[:12]+".json")
 }
 
 // IsActionAllowed checks if an action has been marked as "always allow" for the project.
@@ -78,7 +120,7 @@ func (s *PermissionStore) AllowAction(projectDir string, action string) error {
 
 	path := s.fileName(projectDir)
 	perm := ProjectPermissions{
-		ProjectDir:    projectDir,
+		ProjectDir:     projectDir,
 		AllowedActions: make(map[string]bool),
 	}
 

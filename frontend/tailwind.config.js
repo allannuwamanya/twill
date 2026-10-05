@@ -20,11 +20,17 @@ export default {
         input: "hsl(var(--input))",
         accent: "hsl(var(--accent))",
         "accent-foreground": "hsl(var(--accent-foreground))",
+        destructive: "hsl(var(--destructive))",
       },
       fontFamily: {
         mono: ["JetBrains Mono", "Fira Code", "ui-monospace", "SFMono-Regular", "monospace"],
       },
     },
   },
-  plugins: [],
+  // prose/prose-invert (ChatBubble) and animate-in/fade-in (ApprovalDialog)
+  // generate nothing without these plugins — they were silently dead classes.
+  plugins: [
+    require("@tailwindcss/typography"),
+    require("tailwindcss-animate"),
+  ],
 }

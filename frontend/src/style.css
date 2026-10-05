@@ -2,21 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: 220 14% 96%;
-  --foreground: 222 47% 11%;
-  --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
-  --primary: 221 83% 53%;
-  --primary-foreground: 210 40% 98%;
-  --muted: 210 40% 96%;
-  --muted-foreground: 215 16% 47%;
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
-  --accent: 210 40% 96%;
-  --accent-foreground: 222 47% 11%;
-}
-
+/*
+ * The app ships dark-only (App.tsx hardcodes `className="dark"`), so the dark
+ * palette lives on :root. Previously :root held the light values and only the
+ * inner .dark div overrode them — which left `body` and the scrollbars
+ * rendering light behind the dark UI.
+ */
+:root,
 .dark {
   --background: 224 28% 9%;
   --foreground: 210 40% 98%;
@@ -30,6 +22,7 @@
   --input: 223 20% 20%;
   --accent: 223 20% 18%;
   --accent-foreground: 210 40% 98%;
+  --destructive: 0 72% 51%;
 }
 
 body {
@@ -44,6 +37,10 @@ body {
 }
 
 /* Custom scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+}
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

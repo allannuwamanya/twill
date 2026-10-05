@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"twill/internal/adapter/claude"
-	"twill/internal/adapter/mock"
 	"twill/internal/domain"
 )
 
@@ -17,20 +16,15 @@ type Registry struct {
 	subs     []chan domain.Event
 }
 
-// NewRegistry initializes an adapter registry with default mock and claude adapters.
+// NewRegistry initializes an adapter registry with the Claude Code CLI adapter.
 func NewRegistry(permissions *domain.PermissionStore) *Registry {
 	r := &Registry{
 		adapters: make(map[string]domain.AgentAdapter),
 	}
 
-	mockAdapter := mock.NewMockAdapter()
 	claudeAdapter := claude.NewClaudeAdapter(permissions)
-
-	r.Register(mockAdapter)
 	r.Register(claudeAdapter)
-
-	// Default to mock for offline / safety, can switch to claude
-	r.active = mockAdapter.ID()
+	r.active = claudeAdapter.ID()
 
 	return r
 }

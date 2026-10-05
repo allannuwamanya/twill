@@ -48,9 +48,8 @@ Open a project ➔ Describe the task ➔ Review the plan ➔ Watch progress ➔ 
 - Plan review before execution, driven by the agent's own `ExitPlanMode` call: approve, reject with feedback, or keep editing.
 - Agent questions are rendered as prompts with quick-select answers or free text.
 
-> **Note:** Questions are currently only produced by the mock adapter. The
-> Claude Code CLI does not emit a structured question event, so the question UI
-> is wired and tested but not yet reachable with the real agent.
+> **Note:** The Claude Code CLI does not emit a structured question event, so
+> the question UI is wired and tested but not currently reachable at runtime.
 
 ### 🔍 Code Review
 - Real unified diffs (LCS-based, 3 lines of context) for `Edit`, `Write`, and `MultiEdit`.
@@ -97,7 +96,7 @@ A thin adapter layer sits between the agent and the UI, so changes to an agent's
 - AI chat with real-time streaming
 - Agent activity display
 - Tool and action approvals, with remembered per-project grants
-- Agent questions *(mock adapter only — see the note above)*
+- Agent questions *(wired, but the CLI emits no question event — see the note above)*
 - Plan approval via `ExitPlanMode`
 - Code changes and diff view
 - Session history and resume
@@ -160,8 +159,7 @@ frontend rendered in the native webview. It is not Tauri or Electron.
 - Go 1.23+
 - Node 18+
 - [Wails CLI](https://wails.io/docs/gettingstarted/installation) (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
-- The [`claude`](https://claude.com/claude-code) CLI, installed and authenticated,
-  if you want to use the real agent rather than the mock
+- The [`claude`](https://claude.com/claude-code) CLI, installed and authenticated
 
 ### Commands
 
@@ -173,10 +171,10 @@ wails dev            # run the app with live reload
 wails build          # produce a platform binary in build/bin/
 
 cd frontend
-npm install
-npm run dev          # frontend only, in a browser (no Go backend)
-npm run build        # typecheck + production bundle
-npm run test         # vitest unit tests
+pnpm install
+pnpm run dev          # frontend only, in a browser (no Go backend)
+pnpm run build        # typecheck + production bundle
+pnpm run test         # vitest unit tests
 ```
 
 After changing Go methods on `App`, regenerate the JS bindings with
@@ -187,7 +185,7 @@ After changing Go methods on `App`, regenerate the JS bindings with
 ```bash
 go vet ./...
 go test -race ./...
-cd frontend && npx tsc --noEmit && npm run test
+cd frontend && pnpm exec tsc --noEmit && pnpm run test
 ```
 
 ### Architecture
@@ -197,7 +195,7 @@ Ports-and-adapters (hexagonal). Dependencies point inward:
 ```
 app.go  (Wails bindings, orchestration)
    │
-   ├── internal/adapter   ← registry + agent adapters (claude, mock)
+   ├── internal/adapter   ← registry + agent adapters (claude)
    │        implements domain.Agent, emits domain.Event
    │
    ├── internal/domain    ← PURE Go. Zero imports from the rest of the repo.

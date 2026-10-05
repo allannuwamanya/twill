@@ -137,8 +137,8 @@ func TestSetActiveRejectsUnknownAdapter(t *testing.T) {
 	}
 }
 
-func TestRegistryDefaultsToMock(t *testing.T) {
-	if got := NewRegistry(nil).Active().ID(); got != "mock" {
-		t.Fatalf("default active adapter = %q, want mock", got)
+func TestRegistryDefaultsToClaude(t *testing.T) {
+	if got := NewRegistry(nil).Active().ID(); got != "claude" {
+		t.Fatalf("default active adapter = %q, want claude", got)
 	}
 }

@@ -4,10 +4,10 @@ import (
 	"context"
 )
 
-// AgentAdapter defines the contract for any agent runner (Mock, Claude Code, etc.).
+// AgentAdapter defines the contract for any agent runner (Claude Code, etc.).
 // All events emitted by the adapter must be normalized to domain.Event.
 type AgentAdapter interface {
-	// ID returns the unique identifier for this adapter (e.g., "mock", "claude").
+	// ID returns the unique identifier for this adapter (e.g., "claude").
 	ID() string
 
 	// Name returns a human-friendly display name.

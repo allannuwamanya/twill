@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Folder, Play, Square, Sparkles, Terminal } from 'lucide-react';
+import { Folder, Terminal } from 'lucide-react';
 import { useProjectStore } from '../../../stores/useProjectStore';
 import { useAgentStore } from '../../../stores/useAgentStore';
 import { Button } from '../../../components/ui/Button';
@@ -8,7 +8,7 @@ import { wailsBridge } from '../../../api/wailsBridge';
 
 export const ProjectHeader: React.FC = () => {
   const { projectDir, projectName, selectProject, setProjectDir } = useProjectStore();
-  const { status, statusMessage, activeAdapter, setActiveAdapter } = useAgentStore();
+  const { status, statusMessage, activeAdapter } = useAgentStore();
 
   useEffect(() => {
     // Check initial project directory and active adapter
@@ -98,32 +98,15 @@ export const ProjectHeader: React.FC = () => {
         )}
       </div>
 
-      {/* Right Controls: Adapter switcher */}
-      <div className="flex items-center gap-2">
-        <div className="flex items-center bg-muted/50 p-0.5 rounded-lg border border-border/60 text-xs">
-          <button
-            onClick={() => setActiveAdapter('mock')}
-            className={`px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer ${
-              activeAdapter === 'mock'
-                ? 'bg-card text-foreground shadow-sm font-medium'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            Mock
-          </button>
-          <button
-            onClick={() => setActiveAdapter('claude')}
-            className={`px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer ${
-              activeAdapter === 'claude'
-                ? 'bg-card text-foreground shadow-sm font-medium'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Terminal className="w-3.5 h-3.5 text-primary" />
-            Claude CLI
-          </button>
-        </div>
+      {/* Right Controls: adapter identity */}
+      <div className="flex items-center gap-2 shrink-0">
+        <span
+          className="flex items-center gap-1.5 text-xs text-muted-foreground px-2.5 py-1 rounded-lg border border-border/60 bg-muted/50"
+          title={activeAdapter}
+        >
+          <Terminal className="w-3.5 h-3.5 text-primary" />
+          Claude CLI
+        </span>
       </div>
     </header>
   );

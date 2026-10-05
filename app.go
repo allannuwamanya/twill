@@ -225,7 +225,7 @@ func (a *App) ListAdapters() []map[string]string {
 	return a.registry.List()
 }
 
-// SetActiveAdapter switches the active adapter (e.g. "mock" vs "claude").
+// SetActiveAdapter switches the active adapter.
 func (a *App) SetActiveAdapter(id string) error {
 	return a.registry.SetActive(id)
 }

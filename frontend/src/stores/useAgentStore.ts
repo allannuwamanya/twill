@@ -5,7 +5,6 @@ import {
   Event,
   StatusPayload,
 } from '../types/events';
-import { wailsBridge } from '../api/wailsBridge';
 
 // This store holds only what is read outside the timeline. Conversation content
 // (messages, tools, plans, diffs, questions) lives in useSessionStore's timeline,
@@ -18,7 +17,6 @@ interface AgentState {
 
   // Actions
   setStatus: (status: AgentStatus, message?: string) => void;
-  setActiveAdapter: (adapter: string) => Promise<void>;
   setPendingApproval: (approval: PermissionRequestPayload | null) => void;
   handleEvent: (event: Event) => void;
   reset: () => void;
@@ -27,16 +25,11 @@ interface AgentState {
 export const useAgentStore = create<AgentState>((set, get) => ({
   status: 'idle',
   statusMessage: 'Ready',
-  activeAdapter: 'mock',
+  activeAdapter: 'claude',
   pendingApproval: null,
 
   setStatus: (status, message = '') =>
     set({ status, statusMessage: message }),
-
-  setActiveAdapter: async (adapterId: string) => {
-    await wailsBridge.setActiveAdapter(adapterId);
-    set({ activeAdapter: adapterId });
-  },
 
   setPendingApproval: (pendingApproval) => set({ pendingApproval }),
 

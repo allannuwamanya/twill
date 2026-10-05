@@ -108,7 +108,7 @@ export const wailsBridge = {
     try {
       return await AppGo.GetActiveAdapter();
     } catch {
-      return 'mock';
+      return 'claude';
     }
   },
 

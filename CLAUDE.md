@@ -14,7 +14,7 @@ from the rest of the repo.
 
 ```
 app.go                     Wails bindings + orchestration
-internal/adapter           Registry + agent adapters (claude, mock)
+internal/adapter           Registry + agent adapters (claude)
 internal/domain            events, sessions, permissions, Agent interface
 internal/storage           session persistence
 frontend/src               stores + feature components

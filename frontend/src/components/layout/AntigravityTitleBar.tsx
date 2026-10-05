@@ -45,37 +45,53 @@ export const AntigravityTitleBar: React.FC = () => {
         {/* Minimize (-) */}
         <button
           type="button"
-          onClick={() => wailsBridge.windowMinimise()}
+          onClick={(e) => {
+            e.stopPropagation();
+            wailsBridge.windowMinimise();
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
           title="Minimize"
           style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}
-          className="w-11 h-full flex items-center justify-center text-[#88847d] hover:text-[#eeeae4] hover:bg-[#282623] active:bg-[#33312c] transition-colors cursor-pointer select-none wails-no-drag"
+          className="w-11 h-full flex items-center justify-center text-[#88847d] hover:text-[#eeeae4] hover:bg-[#282623] active:bg-[#33312c] transition-colors cursor-pointer select-none wails-no-drag pointer-events-auto"
         >
-          <Minus className="w-3.5 h-3.5 stroke-[1.75]" />
+          <Minus className="w-3.5 h-3.5 stroke-[1.75] pointer-events-none" />
         </button>
 
         {/* Maximize (□ square matching Antigravity) */}
         <button
           type="button"
-          onClick={() => wailsBridge.windowToggleMaximise()}
+          onClick={(e) => {
+            e.stopPropagation();
+            wailsBridge.windowToggleMaximise();
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
           title="Maximize"
           style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}
-          className="w-11 h-full flex items-center justify-center text-[#88847d] hover:text-[#eeeae4] hover:bg-[#282623] active:bg-[#33312c] transition-colors cursor-pointer select-none wails-no-drag"
+          className="w-11 h-full flex items-center justify-center text-[#88847d] hover:text-[#eeeae4] hover:bg-[#282623] active:bg-[#33312c] transition-colors cursor-pointer select-none wails-no-drag pointer-events-auto"
         >
-          <Square className="w-3 h-3 stroke-[1.5]" />
+          <Square className="w-3 h-3 stroke-[1.5] pointer-events-none" />
         </button>
 
         {/* Close (✕) */}
         <button
           type="button"
-          onClick={() => wailsBridge.quit()}
+          onClick={(e) => {
+            e.stopPropagation();
+            wailsBridge.quit();
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
           title="Close"
           style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}
-          className="w-11 h-full flex items-center justify-center text-[#88847d] hover:text-white hover:bg-[#e5484d] active:bg-[#d03b40] transition-colors cursor-pointer select-none wails-no-drag"
+          className="w-11 h-full flex items-center justify-center text-[#88847d] hover:text-white hover:bg-[#e5484d] active:bg-[#d03b40] transition-colors cursor-pointer select-none wails-no-drag pointer-events-auto"
         >
-          <X className="w-3.5 h-3.5 stroke-[1.75]" />
+          <X className="w-3.5 h-3.5 stroke-[1.75] pointer-events-none" />
         </button>
       </div>
     </div>
   );
 };
+
 

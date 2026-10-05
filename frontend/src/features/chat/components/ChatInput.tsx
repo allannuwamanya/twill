@@ -77,8 +77,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({ mode = 'docked' }) => {
 
         {/* Elevated Chat Card with Antigravity layout & warm palette */}
         <div
-          onClick={() => textareaRef.current?.focus()}
-          className="rounded-2xl bg-[#282724] border border-[#383631] hover:border-[#423f39] focus-within:border-[#4d4a43] focus-within:ring-1 focus-within:ring-[#4d4a43]/20 shadow-xl transition-all p-3.5 cursor-text"
+          onClick={(e) => {
+            e.stopPropagation();
+            textareaRef.current?.focus();
+          }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            textareaRef.current?.focus();
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="rounded-2xl bg-[#282724] border border-[#383631] hover:border-[#423f39] focus-within:border-[#4d4a43] focus-within:ring-1 focus-within:ring-[#4d4a43]/20 shadow-xl transition-all p-3.5 cursor-text pointer-events-auto"
         >
           {/* Prompt textarea */}
           <textarea
@@ -86,6 +94,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({ mode = 'docked' }) => {
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={handleKeyDown}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
             aria-label="Ask Twill"
             placeholder="Ask anything, @ to mention, / for actions"
             rows={mode === 'centered' ? 3 : 2}

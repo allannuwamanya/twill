@@ -5,11 +5,58 @@
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <link rel="icon" type="image/x-icon" href="/favicon.ico"/>
     <title>twill</title>
-  <script type="module" crossorigin src="/assets/index-ij68HMbX.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-JsbvlCvU.css">
+    <script>
+      // Fix for Linux WebKitGTK in Wails:
+      // In frameless windows on Linux, window.outerWidth is 0.
+      // Wails' resize logic in desktop/main.js checks:
+      // (window.outerWidth - e.clientX < 6) which is always true when outerWidth is 0!
+      // This sets resizeEdge = "se-resize", causing the mousedown listener to call
+      // e.preventDefault() on every single click, blocking all inputs, buttons, and typing.
+      (function() {
+        function patch(w) {
+          if (!w || !w.flags) return;
+          try {
+            w.flags.enableResize = false;
+            w.flags.resizeEdge = undefined;
+            Object.defineProperty(w.flags, 'enableResize', {
+              get: function() { return false; },
+              set: function() {},
+              configurable: false
+            });
+            Object.defineProperty(w.flags, 'resizeEdge', {
+              get: function() { return undefined; },
+              set: function() {},
+              configurable: false
+            });
+          } catch(e) {}
+        }
+        var current = window.wails;
+        if (current) {
+          patch(current);
+        } else {
+          Object.defineProperty(window, 'wails', {
+            configurable: true,
+            enumerable: true,
+            get: function() { return current; },
+            set: function(v) {
+              current = v;
+              patch(v);
+            }
+          });
+        }
+        window.addEventListener('mousemove', function() {
+          if (window.wails && window.wails.flags && window.wails.flags.resizeEdge) {
+            window.wails.flags.resizeEdge = undefined;
+          }
+        }, true);
+      })();
+    </script>
+  <script type="module" crossorigin src="/assets/index-wp7EL_BN.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-x0X_hQW7.css">
 </head>
 <body>
 <div id="root"></div>
 </body>
 </html>
+
 

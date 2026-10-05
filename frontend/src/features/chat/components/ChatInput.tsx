@@ -3,6 +3,7 @@ import { ArrowRight, Square, ChevronUp, Plus, Loader2 } from 'lucide-react';
 import { useSessionStore } from '../../../stores/useSessionStore';
 import { useProjectStore } from '../../../stores/useProjectStore';
 import { useAgentStore } from '../../../stores/useAgentStore';
+import { ClaudeSpinner } from '../../../components/ui/ClaudeSpinner';
 
 interface ChatInputProps {
   mode?: 'docked' | 'centered';
@@ -53,18 +54,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({ mode = 'docked' }) => {
   return (
     <div className={mode === 'centered' ? 'w-full' : 'px-5 pb-5 pt-1 shrink-0 bg-transparent'}>
       <div className="max-w-4xl mx-auto space-y-2">
-        {/* Antigravity Running Task Strip */}
+        {/* Antigravity Running Task Strip with Claude Rotating Animated Verbs */}
         {isBusy && (
           <div className="bg-[#242320] rounded-xl px-4 py-2 border border-[#383631] flex items-center justify-between text-xs shadow-md">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <Loader2 className="w-3.5 h-3.5 text-[#c66b4d] animate-spin shrink-0" />
-              <div className="flex items-center gap-2 truncate">
-                <span className="text-[#96928a] text-[11px]">1 task running</span>
-                <span className="text-[#eeeae4] font-mono text-xs truncate max-w-lg">
-                  {statusMessage || './build/bin/twill'}
-                </span>
-              </div>
-            </div>
+            <ClaudeSpinner
+              mode="strip"
+              state={status === 'thinking' ? 'thinking' : isStreaming ? 'streaming' : 'working'}
+              detail={statusMessage && statusMessage !== 'Ready' ? statusMessage : undefined}
+            />
             <button
               onClick={stopTask}
               title="Stop task"
@@ -74,6 +71,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ mode = 'docked' }) => {
             </button>
           </div>
         )}
+
 
         {/* Elevated Chat Card with Antigravity layout & warm palette */}
         <div

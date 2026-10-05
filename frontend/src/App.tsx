@@ -17,6 +17,7 @@ import { useProjectStore } from './stores/useProjectStore';
 import { wailsBridge } from './api/wailsBridge';
 import { ArrowDown } from 'lucide-react';
 import { TwillLogo, TwillLogoState } from './components/ui/TwillLogo';
+import { ClaudeSpinner } from './components/ui/ClaudeSpinner';
 
 export function App() {
   const {
@@ -252,7 +253,16 @@ export function App() {
                       isStreaming
                     />
                   )}
+
+                  {/* Active Claude Generating / Thinking Animated Verb Indicator */}
+                  {(isStreaming || status === 'working' || status === 'thinking') && !streamingContent && (
+                    <ClaudeSpinner
+                      mode="timeline"
+                      state={status === 'thinking' ? 'thinking' : isStreaming ? 'streaming' : 'working'}
+                    />
+                  )}
                 </div>
+
               </main>
 
               {/* Floating Scroll-to-Bottom Button */}

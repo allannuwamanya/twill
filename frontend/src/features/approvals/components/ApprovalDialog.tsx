@@ -82,27 +82,27 @@ export const ApprovalDialog: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-card border border-border/90 rounded-2xl max-w-lg w-full p-5 shadow-2xl space-y-4">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="bg-[#141414] border border-[#242424] rounded-2xl max-w-lg w-full p-5 shadow-2xl space-y-4 text-xs">
         {/* Header */}
-        <div className="flex items-center gap-3 text-amber-400">
-          <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
-            <ShieldAlert className="w-6 h-6" />
+        <div className="flex items-center gap-3 text-[#ff9940]">
+          <div className="p-2.5 rounded-xl bg-[#ff9940]/10 border border-[#ff9940]/25">
+            <ShieldAlert className="w-5 h-5 text-[#ff9940]" />
           </div>
           <div>
-            <h3 className="font-semibold text-base text-foreground">Action Requires Approval</h3>
-            <p className="text-xs text-muted-foreground">The agent requested permission to run an operation</p>
+            <h3 className="font-semibold text-sm text-zinc-100">Action Requires Approval</h3>
+            <p className="text-zinc-500 text-[11px]">The agent requested permission to run an operation</p>
           </div>
         </div>
 
         {/* Details Card */}
-        <div className="p-3.5 rounded-xl bg-muted/40 border border-border/80 text-sm space-y-2">
+        <div className="p-3.5 rounded-xl bg-[#181818] border border-[#242424] space-y-2">
           <div className="flex items-center justify-between">
-            <span className="font-semibold text-foreground">{pendingApproval.action}</span>
+            <span className="font-semibold text-zinc-200">{pendingApproval.action}</span>
             {pendingApproval.details && (
               <button
                 onClick={copyDetails}
-                className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 cursor-pointer"
+                className="text-[11px] text-zinc-500 hover:text-zinc-200 flex items-center gap-1 cursor-pointer"
                 title="Copy parameters"
               >
                 {copied ? <CheckCheck className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
@@ -111,19 +111,19 @@ export const ApprovalDialog: React.FC = () => {
             )}
           </div>
 
-          <p className="text-xs text-muted-foreground whitespace-pre-wrap select-text">
+          <p className="text-zinc-400 text-xs whitespace-pre-wrap select-text">
             {pendingApproval.description}
           </p>
 
           {pendingApproval.details && (
-            <pre className="p-2.5 rounded-lg bg-zinc-950 text-zinc-300 font-mono text-xs overflow-x-auto select-text border border-zinc-800">
+            <pre className="p-2.5 rounded-lg bg-[#0c0c0c] text-zinc-300 font-mono text-[11px] overflow-x-auto select-text border border-[#202020]">
               {JSON.stringify(pendingApproval.details, null, 2)}
             </pre>
           )}
         </div>
 
         {error && (
-          <p role="alert" className="text-xs text-destructive">
+          <p role="alert" className="text-xs text-[#ff657a]">
             Could not send the decision: {error}
           </p>
         )}

@@ -277,16 +277,12 @@ func (a *App) SaveSession(id string, title string, messageCount int, timelineJSO
 	return a.store.Save(sess)
 }
 
-// ListSessions returns saved sessions for the current project (all projects if none selected), newest first.
+// ListSessions returns all saved sessions across projects, newest first.
 func (a *App) ListSessions() ([]domain.SessionSummary, error) {
 	if a.store == nil {
 		return nil, nil
 	}
-	a.mu.RLock()
-	dir := a.projectDir
-	a.mu.RUnlock()
-
-	sessions, err := a.store.List(dir)
+	sessions, err := a.store.List("")
 	if err != nil {
 		return nil, err
 	}

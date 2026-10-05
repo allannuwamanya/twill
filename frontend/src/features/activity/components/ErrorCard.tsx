@@ -6,26 +6,24 @@ interface ErrorCardProps {
   error: ErrorPayload;
 }
 
-// Agent failures are emitted as events; without this they were dropped on the
-// floor and the run looked like it simply produced no output.
 export const ErrorCard: React.FC<ErrorCardProps> = ({ error }) => {
   return (
     <div
       role="alert"
-      className="my-2 max-w-4xl mx-auto rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2.5 flex items-start gap-2.5 text-xs"
+      className="my-3 max-w-3xl mx-auto rounded-2xl border border-[#e5484d]/30 bg-[#28201f] p-3.5 flex items-start gap-3 text-xs text-[#e5484d] shadow-sm"
     >
-      <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-      <div className="min-w-0">
+      <AlertTriangle className="w-4 h-4 text-[#e5484d] shrink-0 mt-0.5" />
+      <div className="min-w-0 flex-1">
         {error.code && (
-          <span className="font-mono font-semibold text-destructive uppercase tracking-wider mr-1.5">
+          <span className="font-mono font-semibold uppercase tracking-wider mr-2 text-[#e5484d]">
             {error.code}
           </span>
         )}
-        <span className="text-destructive break-words whitespace-pre-wrap select-text">
+        <span className="break-words whitespace-pre-wrap select-text text-[#eeeae4]">
           {error.message}
         </span>
         {error.details && (
-          <pre className="mt-1.5 p-2 rounded-lg bg-zinc-950 text-zinc-300 font-mono text-[11px] overflow-x-auto select-text border border-zinc-800">
+          <pre className="mt-2 p-2.5 rounded-xl bg-[#181715] text-[#d8d5ce] font-mono text-[11px] overflow-x-auto select-text border border-[#33312c]">
             {error.details}
           </pre>
         )}

@@ -6,6 +6,9 @@ import { vi } from 'vitest';
 vi.stubGlobal('runtime', {
   EventsOn: vi.fn(),
   EventsOff: vi.fn(),
+  WindowMinimise: vi.fn(),
+  WindowToggleMaximise: vi.fn(),
+  Quit: vi.fn(),
 });
 
 vi.stubGlobal('go', {});

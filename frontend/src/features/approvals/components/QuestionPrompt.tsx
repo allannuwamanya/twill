@@ -44,27 +44,27 @@ export const QuestionPrompt: React.FC<QuestionPromptProps> = ({
   };
 
   return (
-    <div className="my-3 max-w-4xl mx-auto rounded-2xl border border-sky-500/30 bg-sky-950/20 text-card-foreground shadow-sm overflow-hidden p-4">
+    <div className="my-3 max-w-4xl mx-auto rounded-2xl border border-[#ff9940]/30 bg-[#141414] shadow-sm overflow-hidden p-4">
       <div className="flex items-start gap-3 mb-3">
-        <div className="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center justify-center shrink-0 text-sky-400 mt-0.5">
-          <HelpCircle className="w-4 h-4" />
+        <div className="w-7 h-7 rounded-lg bg-[#ff9940]/10 border border-[#ff9940]/25 flex items-center justify-center shrink-0 text-[#ff9940] mt-0.5">
+          <HelpCircle className="w-3.5 h-3.5" />
         </div>
         <div className="flex-1 min-w-0">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-sky-400 block mb-1">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-[#ff9940] block mb-1">
             Agent Question
           </span>
-          <p className="text-sm font-medium text-foreground select-text">{question.question}</p>
+          <p className="text-xs font-medium text-zinc-100 select-text">{question.question}</p>
         </div>
       </div>
 
       {answered ? (
-        <div className="ml-11 p-2.5 rounded-xl bg-muted/40 border border-border/60 text-xs flex items-center gap-2 text-foreground">
-          <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span className="text-muted-foreground">Your answer:</span>
-          <span className="font-semibold text-emerald-400">{selectedAnswer}</span>
+        <div className="ml-10 p-2.5 rounded-xl bg-[#181818] border border-[#242424] text-xs flex items-center gap-2 text-zinc-200">
+          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          <span className="text-zinc-500">Your answer:</span>
+          <span className="font-semibold text-[#ffc799]">{selectedAnswer}</span>
         </div>
       ) : (
-        <div className="ml-11 space-y-3">
+        <div className="ml-10 space-y-3">
           {/* Suggested Option Pills */}
           {question.options && question.options.length > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -73,7 +73,7 @@ export const QuestionPrompt: React.FC<QuestionPromptProps> = ({
                   key={opt.id}
                   disabled={submitting}
                   onClick={() => handleSelect(opt.label)}
-                  className="px-3 py-1.5 rounded-lg border border-border/80 bg-card hover:bg-muted/80 hover:border-primary/50 text-xs text-foreground font-medium transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-3 py-1.5 rounded-lg border border-[#282828] bg-[#181818] hover:bg-[#222222] hover:border-[#ff9940]/40 text-xs text-zinc-200 font-medium transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   <span>{opt.label}</span>
                 </button>
@@ -91,14 +91,14 @@ export const QuestionPrompt: React.FC<QuestionPromptProps> = ({
                 onChange={(e) => setCustomText(e.target.value)}
                 aria-label="Custom reply"
                 placeholder="Or type a custom reply..."
-                className="flex-1 bg-card border border-border/80 rounded-lg px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/20"
+                className="flex-1 bg-[#181818] border border-[#282828] rounded-lg px-3 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#ff9940]/50"
               />
               <Button
                 variant="primary"
                 size="sm"
                 type="submit"
                 disabled={submitting || !customText.trim()}
-                className="gap-1"
+                className="gap-1 text-xs"
               >
                 <Send className="w-3 h-3" />
                 Reply
@@ -107,7 +107,7 @@ export const QuestionPrompt: React.FC<QuestionPromptProps> = ({
           )}
 
           {error && (
-            <p role="alert" className="text-xs text-destructive">
+            <p role="alert" className="text-xs text-[#ff657a]">
               Could not send your answer: {error}
             </p>
           )}

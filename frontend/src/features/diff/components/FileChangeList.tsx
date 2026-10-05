@@ -1,6 +1,6 @@
 import React from 'react';
 import { FileDiff } from '../../../types/events';
-import { FileCode, FilePlus, FileMinus, FileEdit, Check, X } from 'lucide-react';
+import { FilePlus, FileMinus, FileEdit, Check, X } from 'lucide-react';
 
 interface FileChangeListProps {
   files: FileDiff[];
@@ -24,15 +24,15 @@ export const FileChangeList: React.FC<FileChangeListProps> = ({
       case 'added':
         return <FilePlus className="w-3.5 h-3.5 text-emerald-400 shrink-0" />;
       case 'deleted':
-        return <FileMinus className="w-3.5 h-3.5 text-rose-400 shrink-0" />;
+        return <FileMinus className="w-3.5 h-3.5 text-[#ff657a] shrink-0" />;
       default:
-        return <FileEdit className="w-3.5 h-3.5 text-amber-400 shrink-0" />;
+        return <FileEdit className="w-3.5 h-3.5 text-[#ff9940] shrink-0" />;
     }
   };
 
   return (
-    <div className="w-64 border-r border-border/70 flex flex-col shrink-0 select-none bg-muted/20">
-      <div className="p-2.5 border-b border-border/60 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+    <div className="w-64 border-r border-[#1f1f1f] flex flex-col shrink-0 select-none bg-[#121212]">
+      <div className="p-2.5 border-b border-[#1f1f1f] text-[10px] font-semibold uppercase tracking-wider text-zinc-500 flex items-center justify-between">
         <span>Files Changed ({files.length})</span>
       </div>
 
@@ -56,16 +56,16 @@ export const FileChangeList: React.FC<FileChangeListProps> = ({
                   onSelectFile(file.filePath);
                 }
               }}
-              className={`group flex items-center justify-between p-2 rounded-lg text-xs cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
+              className={`group flex items-center justify-between p-2 rounded-lg text-xs cursor-pointer transition-colors focus:outline-none ${
                 isActive
-                  ? 'bg-card border border-border shadow-xs text-foreground font-medium'
-                  : 'hover:bg-muted/50 text-muted-foreground hover:text-foreground'
+                  ? 'bg-[#1c1c1c] border border-[#2a2a2a] shadow-xs text-zinc-100 font-medium'
+                  : 'hover:bg-[#181818] text-zinc-400 hover:text-zinc-200 border border-transparent'
               }`}
             >
               <div className="flex items-center gap-2 min-w-0 flex-1 pr-1">
                 {getStatusIcon(file.status)}
                 <div className="truncate">
-                  <span className="text-foreground font-mono text-[11px]">{basename}</span>
+                  <span className="text-zinc-200 font-mono text-[11px]">{basename}</span>
                   {dirname && (
                     <span className="text-zinc-500 font-mono text-[10px] block truncate">
                       {dirname}
@@ -81,7 +81,7 @@ export const FileChangeList: React.FC<FileChangeListProps> = ({
                     <span className="text-emerald-400">+{file.additions}</span>
                   )}
                   {file.deletions !== undefined && file.deletions > 0 && (
-                    <span className="text-rose-400">-{file.deletions}</span>
+                    <span className="text-[#ff657a]">-{file.deletions}</span>
                   )}
                 </div>
 
@@ -93,8 +93,8 @@ export const FileChangeList: React.FC<FileChangeListProps> = ({
                       aria-pressed={decision === false}
                       className={`p-1 rounded transition-colors cursor-pointer ${
                         decision === false
-                          ? 'bg-rose-500/20 text-rose-400'
-                          : 'text-zinc-500 hover:text-rose-400'
+                          ? 'bg-red-500/20 text-[#ff657a]'
+                          : 'text-zinc-500 hover:text-[#ff657a]'
                       }`}
                       title="Reject file change"
                     >

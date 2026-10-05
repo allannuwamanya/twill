@@ -20,56 +20,54 @@ interface ActivityCardProps {
 export const ActivityCard: React.FC<ActivityCardProps> = ({ tool }) => {
   const [expanded, setExpanded] = useState(false);
 
-  // The CLI emits camelCase tool names; matching snake_case meant every card
-  // fell through to the default icon.
   const getToolIcon = () => {
     switch (tool.toolName) {
       case 'Read':
       case 'NotebookRead':
-        return <FileSearch className="w-4 h-4 text-sky-400" />;
+        return <FileSearch className="w-3.5 h-3.5 text-[#d9b98a]" />;
       case 'Write':
       case 'Edit':
       case 'MultiEdit':
       case 'NotebookEdit':
-        return <FileText className="w-4 h-4 text-amber-400" />;
+        return <FileText className="w-3.5 h-3.5 text-[#c66b4d]" />;
       case 'Bash':
       case 'BashOutput':
-        return <Terminal className="w-4 h-4 text-emerald-400" />;
+        return <Terminal className="w-3.5 h-3.5 text-[#7fa3e8]" />;
       case 'WebFetch':
       case 'WebSearch':
-        return <Globe className="w-4 h-4 text-violet-400" />;
+        return <Globe className="w-3.5 h-3.5 text-[#6e8fe8]" />;
       case 'TodoWrite':
       case 'ExitPlanMode':
-        return <ListTodo className="w-4 h-4 text-primary" />;
+        return <ListTodo className="w-3.5 h-3.5 text-[#d9b98a]" />;
       default:
-        return <Terminal className="w-4 h-4 text-primary" />;
+        return <Terminal className="w-3.5 h-3.5 text-[#d9b98a]" />;
     }
   };
 
   const getStatusIcon = () => {
     switch (tool.status) {
       case 'running':
-        return <Loader2 className="w-3.5 h-3.5 text-sky-400 animate-spin" />;
+        return <Loader2 className="w-3.5 h-3.5 text-[#c66b4d] animate-spin" />;
       case 'completed':
-        return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />;
+        return <CheckCircle2 className="w-3.5 h-3.5 text-[#2fb67c]" />;
       case 'failed':
-        return <AlertCircle className="w-3.5 h-3.5 text-red-400" />;
+        return <AlertCircle className="w-3.5 h-3.5 text-[#e5484d]" />;
       default:
         return null;
     }
   };
 
   return (
-    <div className="my-2 max-w-4xl mx-auto rounded-xl border border-border/70 bg-card/60 overflow-hidden text-xs">
+    <div className="my-2 max-w-3xl mx-auto rounded-xl border border-[#383631] bg-[#242320] overflow-hidden text-xs shadow-xs">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between p-2.5 hover:bg-muted/40 transition-colors text-left cursor-pointer"
+        className="w-full flex items-center justify-between p-2.5 hover:bg-[#2b2a26] transition-colors text-left cursor-pointer"
       >
         <div className="flex items-center gap-2 min-w-0">
           {getToolIcon()}
-          <span className="font-mono font-medium text-foreground">{tool.toolName}</span>
+          <span className="font-mono font-medium text-[#eeeae4]">{tool.toolName}</span>
           {tool.input && (
-            <span className="text-muted-foreground truncate font-mono max-w-xs">
+            <span className="text-[#96928a] truncate font-mono max-w-sm text-[11px]">
               {JSON.stringify(tool.input)}
             </span>
           )}
@@ -78,29 +76,29 @@ export const ActivityCard: React.FC<ActivityCardProps> = ({ tool }) => {
         <div className="flex items-center gap-2 shrink-0">
           {getStatusIcon()}
           {expanded ? (
-            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+            <ChevronDown className="w-3.5 h-3.5 text-[#7d7972]" />
           ) : (
-            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+            <ChevronRight className="w-3.5 h-3.5 text-[#7d7972]" />
           )}
         </div>
       </button>
 
       {expanded && (
-        <div className="p-3 border-t border-border/50 bg-zinc-950 text-zinc-300 font-mono text-[11px] overflow-x-auto select-text">
+        <div className="p-3 border-t border-[#33312c] bg-[#181715] text-[#d8d5ce] font-mono text-[11px] overflow-x-auto select-text">
           {tool.input && (
             <div className="mb-2">
-              <span className="text-zinc-500 font-semibold uppercase tracking-wider block text-[10px] mb-1">
+              <span className="text-[#7d7972] font-semibold uppercase tracking-wider block text-[10px] mb-1">
                 Input
               </span>
-              <pre>{JSON.stringify(tool.input, null, 2)}</pre>
+              <pre className="text-[#d8d5ce]">{JSON.stringify(tool.input, null, 2)}</pre>
             </div>
           )}
           {tool.output && (
             <div>
-              <span className="text-zinc-500 font-semibold uppercase tracking-wider block text-[10px] mb-1">
+              <span className="text-[#7d7972] font-semibold uppercase tracking-wider block text-[10px] mb-1">
                 Output
               </span>
-              <pre className="whitespace-pre-wrap">{tool.output}</pre>
+              <pre className="whitespace-pre-wrap text-[#d8d5ce]">{tool.output}</pre>
             </div>
           )}
         </div>

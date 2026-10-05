@@ -2,33 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
-/*
- * The app ships dark-only (App.tsx hardcodes `className="dark"`), so the dark
- * palette lives on :root. Previously :root held the light values and only the
- * inner .dark div overrode them — which left `body` and the scrollbars
- * rendering light behind the dark UI.
- */
+@layer utilities {
+  .font-editorial {
+    font-family: "Newsreader", "Canela", "Georgia", "Cambria", "Times New Roman", serif;
+  }
+}
+
 :root,
 .dark {
-  --background: 224 28% 9%;
-  --foreground: 210 40% 98%;
-  --card: 224 25% 12%;
-  --card-foreground: 210 40% 98%;
-  --primary: 217 91% 60%;
-  --primary-foreground: 222 47% 11%;
-  --muted: 223 20% 18%;
-  --muted-foreground: 218 15% 65%;
-  --border: 223 20% 20%;
-  --input: 223 20% 20%;
-  --accent: 223 20% 18%;
-  --accent-foreground: 210 40% 98%;
-  --destructive: 0 72% 51%;
+  /* Anthropic Claude Desktop Warm Charcoal / Espresso Palette */
+  --background: 36 9% 11.5%;        /* #1f1e1b warm deep canvas */
+  --foreground: 36 20% 93%;         /* #eeeae4 warm ivory text */
+  --card: 36 7% 15.5%;              /* #282724 elevated warm stone surface */
+  --card-foreground: 36 15% 88%;    /* #e2ded8 warm light text */
+  --primary: 15 50% 54%;            /* #c66b4d Claude warm terracotta / coral */
+  --primary-foreground: 0 0% 100%;  /* #ffffff */
+  --muted: 36 8% 18%;               /* #302e2a warm stone muted */
+  --muted-foreground: 36 8% 58%;   /* #96928a warm stone text */
+  --border: 36 8% 21%;             /* #383631 soft tactile warm border */
+  --input: 36 7% 14.5%;             /* #252421 warm input surface */
+  --accent: 36 8% 18%;              /* #2f2d29 warm hover surface */
+  --accent-foreground: 36 35% 70%;  /* #d9b98a sand thread accent */
+  --destructive: 350 75% 55%;       /* #e5484d failed / error */
 }
 
 body {
   margin: 0;
   padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
   overflow: hidden;
@@ -36,10 +37,10 @@ body {
   -webkit-user-select: none;
 }
 
-/* Custom scrollbars */
+/* Custom warm scrollbars matching Claude Desktop */
 * {
   scrollbar-width: thin;
-  scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+  scrollbar-color: rgba(210, 205, 195, 0.18) transparent;
 }
 ::-webkit-scrollbar {
   width: 6px;
@@ -49,9 +50,9 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.3);
+  background: rgba(210, 205, 195, 0.18);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.5);
+  background: rgba(210, 205, 195, 0.35);
 }

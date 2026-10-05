@@ -1,5 +1,5 @@
 import * as AppGo from '../../wailsjs/go/main/App';
-import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
+import { EventsOn, EventsOff, WindowMinimise, WindowToggleMaximise, Quit } from '../../wailsjs/runtime/runtime';
 import { Event } from '../types/events';
 import { SessionSummary, SavedSession } from '../types/session';
 
@@ -109,6 +109,31 @@ export const wailsBridge = {
       return await AppGo.GetActiveAdapter();
     } catch {
       return 'claude';
+    }
+  },
+
+  // Window Management
+  windowMinimise: (): void => {
+    try {
+      WindowMinimise();
+    } catch (err) {
+      console.error('Failed to minimize window:', err);
+    }
+  },
+
+  windowToggleMaximise: (): void => {
+    try {
+      WindowToggleMaximise();
+    } catch (err) {
+      console.error('Failed to toggle maximize window:', err);
+    }
+  },
+
+  quit: (): void => {
+    try {
+      Quit();
+    } catch (err) {
+      console.error('Failed to quit:', err);
     }
   },
 

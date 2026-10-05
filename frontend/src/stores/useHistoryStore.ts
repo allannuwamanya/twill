@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { wailsBridge } from '../api/wailsBridge';
 import { SessionSummary } from '../types/session';
+import { useProjectStore } from './useProjectStore';
 
 interface HistoryState {
   sessions: SessionSummary[];
@@ -16,6 +17,13 @@ export const useHistoryStore = create<HistoryState>((set) => ({
   refresh: async () => {
     const sessions = await wailsBridge.listSessions();
     set({ sessions, loaded: true });
+    // Register project directories discovered from saved sessions
+    const { addProject } = useProjectStore.getState();
+    sessions.forEach((s) => {
+      if (s.projectDir) {
+        addProject(s.projectDir);
+      }
+    });
   },
 
   remove: async (id: string) => {
@@ -23,3 +31,4 @@ export const useHistoryStore = create<HistoryState>((set) => ({
     set((state) => ({ sessions: state.sessions.filter((s) => s.id !== id) }));
   },
 }));
+

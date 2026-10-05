@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { parseUnifiedDiff, buildSplitRows, DiffLine } from '../utils/diffParser';
+import { parseUnifiedDiff, buildSplitRows } from '../utils/diffParser';
 
 interface DiffViewerProps {
   diffText: string;
@@ -12,7 +12,7 @@ export const DiffViewer: React.FC<DiffViewerProps> = ({ diffText, viewMode }) =>
 
   if (!diffText.trim()) {
     return (
-      <div className="p-8 text-center text-xs text-muted-foreground">
+      <div className="p-8 text-center text-xs text-zinc-500">
         No diff available for this file.
       </div>
     );
@@ -20,13 +20,13 @@ export const DiffViewer: React.FC<DiffViewerProps> = ({ diffText, viewMode }) =>
 
   if (viewMode === 'inline') {
     return (
-      <div className="overflow-x-auto font-mono text-xs select-text">
+      <div className="overflow-x-auto font-mono text-xs select-text bg-[#0c0c0c]">
         <table className="w-full border-collapse">
           <tbody>
             {parsedLines.map((line, idx) => {
               if (line.type === 'header') {
                 return (
-                  <tr key={idx} className="bg-muted/40 text-muted-foreground italic border-y border-border/40">
+                  <tr key={idx} className="bg-[#141414] text-zinc-500 italic border-y border-[#202020]">
                     <td colSpan={3} className="px-3 py-1 text-[11px]">
                       {line.text}
                     </td>
@@ -44,16 +44,16 @@ export const DiffViewer: React.FC<DiffViewerProps> = ({ diffText, viewMode }) =>
                     isAdded
                       ? 'bg-emerald-500/10 text-emerald-300'
                       : isDeleted
-                      ? 'bg-rose-500/10 text-rose-300'
-                      : 'hover:bg-muted/20 text-zinc-300'
+                      ? 'bg-red-500/10 text-[#ff657a]'
+                      : 'hover:bg-[#151515] text-zinc-300'
                   }`}
                 >
                   {/* Old line number */}
-                  <td className="w-12 px-2 py-0.5 text-right text-zinc-600 select-none border-r border-border/30 text-[11px]">
+                  <td className="w-12 px-2 py-0.5 text-right text-zinc-600 select-none border-r border-[#1f1f1f] text-[11px]">
                     {line.oldLineNumber || ''}
                   </td>
                   {/* New line number */}
-                  <td className="w-12 px-2 py-0.5 text-right text-zinc-600 select-none border-r border-border/30 text-[11px]">
+                  <td className="w-12 px-2 py-0.5 text-right text-zinc-600 select-none border-r border-[#1f1f1f] text-[11px]">
                     {line.newLineNumber || ''}
                   </td>
                   {/* Content with prefix */}
@@ -74,14 +74,14 @@ export const DiffViewer: React.FC<DiffViewerProps> = ({ diffText, viewMode }) =>
 
   // Split / Side-by-Side Mode
   return (
-    <div className="overflow-x-auto font-mono text-xs select-text">
+    <div className="overflow-x-auto font-mono text-xs select-text bg-[#0c0c0c]">
       <table className="w-full border-collapse table-fixed">
         <tbody>
           {splitRows.map((row, idx) => {
             const isHeader = row.left?.type === 'header';
             if (isHeader) {
               return (
-                <tr key={idx} className="bg-muted/40 text-muted-foreground italic border-y border-border/40">
+                <tr key={idx} className="bg-[#141414] text-zinc-500 italic border-y border-[#202020]">
                   <td colSpan={4} className="px-3 py-1 text-[11px]">
                     {row.left?.text}
                   </td>
@@ -93,14 +93,14 @@ export const DiffViewer: React.FC<DiffViewerProps> = ({ diffText, viewMode }) =>
             const rightAdded = row.right?.type === 'added';
 
             return (
-              <tr key={idx} className="leading-relaxed border-b border-border/15">
+              <tr key={idx} className="leading-relaxed border-b border-[#181818]">
                 {/* Left (Old) Side */}
-                <td className="w-12 px-2 py-0.5 text-right text-zinc-600 select-none border-r border-border/30 text-[11px] bg-card/40">
+                <td className="w-12 px-2 py-0.5 text-right text-zinc-600 select-none border-r border-[#1f1f1f] text-[11px] bg-[#101010]">
                   {row.left?.oldLineNumber || ''}
                 </td>
                 <td
-                  className={`w-1/2 px-3 py-0.5 whitespace-pre border-r border-border/50 ${
-                    leftDeleted ? 'bg-rose-500/10 text-rose-300' : 'text-zinc-300'
+                  className={`w-1/2 px-3 py-0.5 whitespace-pre border-r border-[#1f1f1f] ${
+                    leftDeleted ? 'bg-red-500/10 text-[#ff657a]' : 'text-zinc-300'
                   }`}
                 >
                   {row.left && (
@@ -114,7 +114,7 @@ export const DiffViewer: React.FC<DiffViewerProps> = ({ diffText, viewMode }) =>
                 </td>
 
                 {/* Right (New) Side */}
-                <td className="w-12 px-2 py-0.5 text-right text-zinc-600 select-none border-r border-border/30 text-[11px] bg-card/40">
+                <td className="w-12 px-2 py-0.5 text-right text-zinc-600 select-none border-r border-[#1f1f1f] text-[11px] bg-[#101010]">
                   {row.right?.newLineNumber || ''}
                 </td>
                 <td

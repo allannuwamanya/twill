@@ -63,18 +63,18 @@ export const PlanReview: React.FC<PlanReviewProps> = ({ plan, approved }) => {
   };
 
   return (
-    <div className="my-3 max-w-4xl mx-auto rounded-2xl border border-border/80 bg-card text-card-foreground shadow-sm overflow-hidden p-4">
+    <div className="my-3 max-w-4xl mx-auto rounded-2xl border border-[#242424] bg-[#141414] text-zinc-200 shadow-sm overflow-hidden p-4">
       {/* Plan Header */}
-      <div className="flex items-center justify-between gap-3 mb-3 pb-3 border-b border-border/60">
+      <div className="flex items-center justify-between gap-3 mb-3 pb-3 border-b border-[#1f1f1f]">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 text-primary">
-            <ListTodo className="w-4 h-4" />
+          <div className="w-7 h-7 rounded-lg bg-[#ff9940]/10 border border-[#ff9940]/25 flex items-center justify-center shrink-0 text-[#ff9940]">
+            <ListTodo className="w-3.5 h-3.5" />
           </div>
           <div>
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-primary block">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#ff9940] block">
               Proposed Execution Plan
             </span>
-            <h4 className="text-sm font-semibold text-foreground">{plan.title}</h4>
+            <h4 className="text-xs font-semibold text-zinc-100">{plan.title}</h4>
           </div>
         </div>
 
@@ -96,16 +96,16 @@ export const PlanReview: React.FC<PlanReviewProps> = ({ plan, approved }) => {
             key={step.index}
             className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-colors ${
               step.status === 'in_progress'
-                ? 'bg-sky-500/10 border-sky-500/30 text-foreground'
+                ? 'bg-[#ff9940]/10 border-[#ff9940]/25 text-zinc-100'
                 : step.status === 'completed'
-                ? 'bg-emerald-500/5 border-emerald-500/20 text-foreground'
-                : 'bg-muted/30 border-border/60 text-muted-foreground'
+                ? 'bg-emerald-500/10 border-emerald-500/20 text-zinc-200'
+                : 'bg-[#181818] border-[#222222] text-zinc-400'
             }`}
           >
             <div className="flex items-center gap-2.5 min-w-0">
               {getStepIcon(step.status)}
-              <span className="font-mono text-muted-foreground font-medium">#{step.index}</span>
-              <span className="truncate text-foreground font-medium select-text">{step.description}</span>
+              <span className="font-mono text-zinc-500 font-medium">#{step.index}</span>
+              <span className="truncate text-zinc-200 font-medium select-text">{step.description}</span>
             </div>
             <div className="shrink-0">{getStepBadge(step.status)}</div>
           </div>
@@ -114,7 +114,7 @@ export const PlanReview: React.FC<PlanReviewProps> = ({ plan, approved }) => {
 
       {/* Decision Controls */}
       {!isDecided && (
-        <div className="pt-2 border-t border-border/60 space-y-3">
+        <div className="pt-2 border-t border-[#1f1f1f] space-y-3">
           {showFeedback && (
             <div className="space-y-2">
               <textarea
@@ -122,7 +122,7 @@ export const PlanReview: React.FC<PlanReviewProps> = ({ plan, approved }) => {
                 onChange={(e) => setFeedback(e.target.value)}
                 placeholder="Enter feedback or changes requested for this plan..."
                 rows={2}
-                className="w-full bg-muted/40 border border-border rounded-xl p-2.5 text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary/50"
+                className="w-full bg-[#181818] border border-[#262626] rounded-xl p-2.5 text-xs text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#ff9940]/50"
               />
             </div>
           )}

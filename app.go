@@ -345,4 +345,3 @@ func (a *App) WindowQuit() {
 		runtime.Quit(a.ctx)
 	}
 }
-

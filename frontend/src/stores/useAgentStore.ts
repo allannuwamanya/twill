@@ -5,6 +5,7 @@ import {
   Event,
   StatusPayload,
 } from '../types/events';
+import { useSessionStore } from './useSessionStore';
 
 // This store holds only what is read outside the timeline. Conversation content
 // (messages, tools, plans, diffs, questions) lives in useSessionStore's timeline,
@@ -34,6 +35,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   setPendingApproval: (pendingApproval) => set({ pendingApproval }),
 
   handleEvent: (event: Event) => {
+    if (event.sessionId !== useSessionStore.getState().sessionId) return;
+
     switch (event.type) {
       case 'status_change': {
         const payload = event.payload as StatusPayload;

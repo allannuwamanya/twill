@@ -30,12 +30,18 @@ type App struct {
 }
 
 // NewApp creates a new App application struct.
-func NewApp() *App {
+func NewApp() (*App, error) {
 	sys.EnsurePathHasNode()
 
-	permStore, _ := domain.NewPermissionStore()
+	permStore, err := domain.NewPermissionStore()
+	if err != nil {
+		return nil, fmt.Errorf("initialize permission store: %w", err)
+	}
 	reg := adapter.NewRegistry(permStore)
-	store, _ := jsonstore.NewFileStore()
+	store, err := jsonstore.NewFileStore()
+	if err != nil {
+		return nil, fmt.Errorf("initialize session store: %w", err)
+	}
 
 	return &App{
 		registry:       reg,
@@ -43,6 +49,13 @@ func NewApp() *App {
 		permissions:    permStore,
 		agentSessions:  map[string]string{},
 		permissionKeys: map[string]string{},
+	}, nil
+}
+
+// shutdown stops the active CLI process before Wails tears down the runtime.
+func (a *App) shutdown(_ context.Context) {
+	if active := a.registry.Active(); active != nil {
+		_ = active.Stop()
 	}
 }
 
@@ -150,7 +163,12 @@ func (a *App) SendApproval(requestID string, approved bool, alwaysAllow bool) er
 		return fmt.Errorf("no active agent adapter")
 	}
 
-	if alwaysAllow && a.permissions != nil {
+	err := active.SendApproval(requestID, approved, alwaysAllow)
+	if err != nil {
+		return err
+	}
+
+	if approved && alwaysAllow && a.permissions != nil {
 		a.mu.Lock()
 		dir := a.projectDir
 		key := a.permissionKeys[requestID]
@@ -162,9 +180,13 @@ func (a *App) SendApproval(requestID string, approved bool, alwaysAllow bool) er
 		if dir != "" && key != "" {
 			_ = a.permissions.AllowAction(dir, key)
 		}
+	} else {
+		a.mu.Lock()
+		delete(a.permissionKeys, requestID)
+		a.mu.Unlock()
 	}
 
-	return active.SendApproval(requestID, approved, alwaysAllow)
+	return nil
 }
 
 // SendAnswer submits a user response to an agent question.

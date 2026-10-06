@@ -138,6 +138,61 @@ func TestAutoApproveWithoutStoreEscalates(t *testing.T) {
 	}
 }
 
+func TestAutoApproveSendsOriginalInput(t *testing.T) {
+	store, err := domain.NewPermissionStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	projectDir := t.TempDir()
+	if err := store.AllowAction(projectDir, "Bash:git status"); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewClaudeAdapter(store)
+	buf := &testBufferCloser{}
+	c.mu.Lock()
+	c.projectDir = projectDir
+	c.stdin = buf
+	c.mu.Unlock()
+
+	res := ParseResult{
+		PermissionRequestID: "r1",
+		PermissionToolName:  "Bash",
+		PermissionInput:     map[string]interface{}{"command": "git status"},
+	}
+	if !c.autoApprove("sess_1", res) {
+		t.Fatal("expected granted action to auto-approve")
+	}
+	if !strings.Contains(buf.String(), `"updatedInput":{"command":"git status"}`) {
+		t.Fatalf("auto-approval dropped the original input: %s", buf.String())
+	}
+}
+
+func TestAutoApproveRejectsUnscopedActionKey(t *testing.T) {
+	store, err := domain.NewPermissionStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	projectDir := t.TempDir()
+	if err := store.AllowAction(projectDir, "Grep"); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewClaudeAdapter(store)
+	c.mu.Lock()
+	c.projectDir = projectDir
+	c.stdin = &testBufferCloser{}
+	c.mu.Unlock()
+
+	if c.autoApprove("sess_1", ParseResult{
+		PermissionRequestID: "r1",
+		PermissionToolName:  "Grep",
+		PermissionInput:     map[string]interface{}{"pattern": "secret"},
+	}) {
+		t.Fatal("unscoped tool grant must still require approval")
+	}
+}
+
 type testBufferCloser struct {
 	bytes.Buffer
 }

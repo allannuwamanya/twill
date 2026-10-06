@@ -6,13 +6,8 @@ import {
   Plus,
   Trash2,
   History,
-  Clock,
-  Settings,
   SlidersHorizontal,
   ChevronsUpDown,
-  PanelLeft,
-  ChevronLeft,
-  ChevronRight,
 } from 'lucide-react';
 import { useHistoryStore } from '../../../stores/useHistoryStore';
 import { useSessionStore } from '../../../stores/useSessionStore';
@@ -200,30 +195,6 @@ export function HistorySidebar() {
           </div>
         </div>
 
-        {/* Browser Nav: Sidebar, Back, Forward */}
-        <div className="flex items-center gap-1.5 text-[#88847d]">
-          <button
-            onClick={() => {}}
-            title="Toggle sidebar"
-            className="p-1 rounded-md hover:bg-[#252320] hover:text-[#eeeae4] transition-colors cursor-pointer"
-          >
-            <PanelLeft className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => {}}
-            title="Back"
-            className="p-1 rounded-md hover:bg-[#252320] hover:text-[#eeeae4] transition-colors cursor-pointer"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => {}}
-            title="Forward"
-            className="p-1 rounded-md hover:bg-[#252320] hover:text-[#eeeae4] transition-colors cursor-pointer"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
       </div>
 
       {/* New Conversation Button (Full width rounded pill matching Antigravity) */}
@@ -238,7 +209,7 @@ export function HistorySidebar() {
         </button>
       </div>
 
-      {/* Navigation Links: Conversation History & Scheduled Tasks */}
+      {/* Navigation Link: Conversation History */}
       <div className="px-3 py-1 space-y-0.5 border-b border-[#282623] pb-2.5">
         <button
           onClick={() => refresh()}
@@ -246,13 +217,6 @@ export function HistorySidebar() {
         >
           <History className="w-4 h-4 text-[#7d7972]" />
           <span className="font-normal">Conversation History</span>
-        </button>
-        <button
-          onClick={handleOpenFolder}
-          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[#96928a] hover:text-[#eeeae4] hover:bg-[#22201d] transition-colors cursor-pointer text-left text-sm"
-        >
-          <Clock className="w-4 h-4 text-[#7d7972]" />
-          <span className="font-normal">Scheduled Tasks</span>
         </button>
       </div>
 
@@ -413,16 +377,7 @@ export function HistorySidebar() {
         })}
       </div>
 
-      {/* Bottom Footer: Settings Gear only (Matches Antigravity) */}
-      <div className="h-12 px-4 border-t border-[#282623] flex items-center justify-between">
-        <button
-          onClick={() => {}}
-          className="flex items-center gap-2.5 text-[#96928a] hover:text-[#eeeae4] transition-colors cursor-pointer text-sm"
-        >
-          <Settings className="w-4 h-4 text-[#7d7972]" />
-          <span>Settings</span>
-        </button>
-      </div>
+      <div className="h-3 border-t border-[#282623]" />
     </aside>
   );
 }

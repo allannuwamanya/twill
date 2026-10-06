@@ -58,7 +58,7 @@ func NewPermissionStore(customDir ...string) (*PermissionStore, error) {
 		dir = filepath.Join(home, ".twill", "permissions")
 	}
 
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
 	}
 
@@ -138,7 +138,7 @@ func (s *PermissionStore) AllowAction(projectDir string, action string) error {
 		return err
 	}
 
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(path, data, 0600)
 }
 
 // GetAllowedActions returns the list of allowed actions for a project.

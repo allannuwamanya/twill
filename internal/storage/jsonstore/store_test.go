@@ -1,6 +1,7 @@
 package jsonstore
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -75,5 +76,31 @@ func TestSaveRequiresIDAndBlocksTraversal(t *testing.T) {
 	}
 	if _, err := s.Get("evil"); err != nil {
 		t.Fatalf("traversal id should be confined to store dir: %v", err)
+	}
+}
+
+func TestSessionStorageIsPrivate(t *testing.T) {
+	base := t.TempDir()
+	s, err := NewFileStore(base + "/sessions")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Save(&domain.Session{ID: "private"}); err != nil {
+		t.Fatal(err)
+	}
+
+	dirInfo, err := os.Stat(s.baseDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dirInfo.Mode().Perm() != 0o700 {
+		t.Fatalf("session directory mode = %o, want 700", dirInfo.Mode().Perm())
+	}
+	fileInfo, err := os.Stat(s.filePath("private"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fileInfo.Mode().Perm() != 0o600 {
+		t.Fatalf("session file mode = %o, want 600", fileInfo.Mode().Perm())
 	}
 }

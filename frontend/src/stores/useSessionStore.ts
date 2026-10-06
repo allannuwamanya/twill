@@ -398,6 +398,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   handleEvent: (event: Event) => {
+    if (event.sessionId !== get().sessionId) return;
+
     switch (event.type) {
       case 'diff': {
         const payload = event.payload as DiffPayload;

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useSessionStore, TimelineEntry } from './useSessionStore';
+import { useAgentStore } from './useAgentStore';
 import { wailsBridge } from '../api/wailsBridge';
 
 vi.mock('../api/wailsBridge', () => ({
@@ -21,16 +22,32 @@ const mockBridge = vi.mocked(wailsBridge);
 const state = () => useSessionStore.getState();
 const timeline = () => state().timeline;
 
-function event(type: string, payload: unknown) {
-  return { id: 'e1', sessionId: 's1', type, timestamp: new Date().toISOString(), payload } as any;
+function event(type: string, payload: unknown, sessionId = state().sessionId) {
+  return { id: 'e1', sessionId, type, timestamp: new Date().toISOString(), payload } as any;
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
   state().initSession();
+  useAgentStore.getState().reset();
 });
 
 describe('handleEvent routing', () => {
+  it('ignores events from another session', () => {
+    state().handleEvent(event('error', { code: 'STDERR', message: 'stale' }, 'old-session'));
+
+    expect(timeline()).toHaveLength(0);
+  });
+
+  it('keeps agent status unchanged for another session event', () => {
+    useAgentStore.getState().handleEvent(
+      event('status_change', { status: 'failed', message: 'stale' }, 'old-session')
+    );
+
+    expect(useAgentStore.getState().status).toBe('idle');
+    expect(useAgentStore.getState().statusMessage).toBe('Ready');
+  });
+
   it('appends an error entry, which used to be dropped entirely', () => {
     state().handleEvent(event('error', { code: 'STDERR', message: 'boom' }));
 

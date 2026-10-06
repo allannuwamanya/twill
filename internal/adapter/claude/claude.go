@@ -353,6 +353,9 @@ func (c *ClaudeAdapter) autoApprove(sessionID string, res ParseResult) bool {
 	}
 
 	key := domain.ActionKey(res.PermissionToolName, res.PermissionInput)
+	if key == res.PermissionToolName {
+		return false
+	}
 
 	c.mu.Lock()
 	perms, projectDir := c.permissions, c.projectDir
@@ -362,11 +365,24 @@ func (c *ClaudeAdapter) autoApprove(sessionID string, res ParseResult) bool {
 		return false
 	}
 
-	// The tool_use block still reaches the timeline through the normal assistant
-	// message, so the user still sees the action; only the modal is skipped.
-	if err := c.SendApproval(res.PermissionRequestID, true, false); err != nil {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if err := c.writeJSON(map[string]interface{}{
+		"type": "control_response",
+		"response": map[string]interface{}{
+			"subtype":    "success",
+			"request_id": res.PermissionRequestID,
+			"response": map[string]interface{}{
+				"behavior":     "allow",
+				"updatedInput": res.PermissionInput,
+			},
+		},
+	}); err != nil {
 		return false
 	}
+
+	// The tool_use block still reaches the timeline through the normal assistant
+	// message, so the user still sees the action; only the modal is skipped.
 	c.emit(sessionID, domain.EventStatusChange, domain.StatusPayload{
 		Status: domain.StatusWorking, Message: "Auto-approved: " + key,
 	})
@@ -410,13 +426,22 @@ func (c *ClaudeAdapter) readErrors(sessionID string, stderr io.Reader) {
 }
 
 func (c *ClaudeAdapter) waitForExit(sessionID string) {
+	c.mu.Lock()
+	cmd := c.cmd
+	c.mu.Unlock()
+
 	var err error
-	if c.cmd != nil {
-		err = c.cmd.Wait()
+	if cmd != nil {
+		err = cmd.Wait()
 	}
 	c.mu.Lock()
+	if c.cmd != cmd {
+		c.mu.Unlock()
+		return
+	}
 	wasActive := c.activeTask
 	c.activeTask = false
+	c.cmd = nil
 	c.stdin = nil
 	c.mu.Unlock()
 

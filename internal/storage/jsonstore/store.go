@@ -30,7 +30,7 @@ func NewFileStore(customDir ...string) (*FileStore, error) {
 		dir = filepath.Join(home, ".twill", "sessions")
 	}
 
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create session directory: %w", err)
 	}
 
@@ -57,7 +57,7 @@ func (s *FileStore) Save(session *domain.Session) error {
 
 	path := s.filePath(session.ID)
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0644); err != nil {
+	if err := os.WriteFile(tmp, data, 0600); err != nil {
 		return err
 	}
 	return os.Rename(tmp, path)

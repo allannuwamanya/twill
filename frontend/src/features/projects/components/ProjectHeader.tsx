@@ -1,5 +1,4 @@
 import React, { useEffect } from 'react';
-import { MoreVertical, PanelRight, SplitSquareVertical } from 'lucide-react';
 import { useProjectStore } from '../../../stores/useProjectStore';
 import { useAgentStore } from '../../../stores/useAgentStore';
 import { useSessionStore } from '../../../stores/useSessionStore';
@@ -48,32 +47,6 @@ export const ProjectHeader: React.FC = () => {
         </span>
       </div>
 
-      {/* Right Controls (Matches Antigravity split, more, panel toggles) */}
-      <div className="flex items-center gap-1.5 text-[#88847d]">
-        <button
-          onClick={() => {}}
-          title="Split view"
-          className="p-1.5 rounded-md hover:bg-[#282724] hover:text-[#eeeae4] transition-colors cursor-pointer"
-        >
-          <SplitSquareVertical className="w-4 h-4" />
-        </button>
-
-        <button
-          onClick={() => {}}
-          title="More options"
-          className="p-1.5 rounded-md hover:bg-[#282724] hover:text-[#eeeae4] transition-colors cursor-pointer"
-        >
-          <MoreVertical className="w-4 h-4" />
-        </button>
-
-        <button
-          onClick={() => {}}
-          title="Toggle panel"
-          className="p-1.5 rounded-md hover:bg-[#282724] hover:text-[#eeeae4] transition-colors cursor-pointer"
-        >
-          <PanelRight className="w-4 h-4" />
-        </button>
-      </div>
     </header>
   );
 };

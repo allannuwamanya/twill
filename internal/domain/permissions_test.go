@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -82,6 +83,38 @@ func TestAllowActionRoundTripAndIsolation(t *testing.T) {
 	}
 	if got := a.GetAllowedActions("/proj/one"); len(got) != 1 || got[0] != "Bash:ls" {
 		t.Fatalf("unexpected allowed actions: %v", got)
+	}
+}
+
+func TestPermissionStorageIsPrivate(t *testing.T) {
+	base := filepath.Join(t.TempDir(), "permissions")
+	s, err := NewPermissionStore(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	projectDir := filepath.Join(base, "project")
+	if err := s.AllowAction(projectDir, "Bash:ls"); err != nil {
+		t.Fatal(err)
+	}
+
+	dirInfo, err := os.Stat(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dirInfo.Mode().Perm() != 0o700 {
+		t.Fatalf("permission directory mode = %o, want 700", dirInfo.Mode().Perm())
+	}
+
+	entries, err := os.ReadDir(base)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("permission files = %d (%v), want one", len(entries), err)
+	}
+	fileInfo, err := entries[0].Info()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fileInfo.Mode().Perm() != 0o600 {
+		t.Fatalf("permission file mode = %o, want 600", fileInfo.Mode().Perm())
 	}
 }
 

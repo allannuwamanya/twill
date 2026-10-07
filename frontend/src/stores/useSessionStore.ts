@@ -118,6 +118,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     } catch (err) {
       console.error('Failed to start task:', err);
       set({ isStreaming: false, streamingMessageId: null });
+      get().addError({
+        code: 'START_FAILED',
+        message: err instanceof Error ? err.message : String(err),
+      });
     }
   },
 

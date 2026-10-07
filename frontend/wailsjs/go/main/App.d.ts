@@ -18,6 +18,10 @@ export function ListSessions():Promise<Array<domain.SessionSummary>>;
 
 export function LoadSession(arg1:string):Promise<domain.Session>;
 
+export function RenameSession(arg1:string,arg2:string):Promise<void>;
+
+export function RevealProjectDirectory(arg1:string):Promise<void>;
+
 export function SaveSession(arg1:string,arg2:string,arg3:number,arg4:string):Promise<void>;
 
 export function SelectProjectDirectory():Promise<string>;

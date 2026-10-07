@@ -27,6 +27,10 @@ export const wailsBridge = {
     return AppGo.SetProjectDirectory(dir);
   },
 
+  revealProjectDirectory: async (dir: string): Promise<void> => {
+    return AppGo.RevealProjectDirectory(dir);
+  },
+
   // Task Control
   startTask: async (sessionId: string, prompt: string): Promise<void> => {
     return AppGo.StartTask(sessionId, prompt);
@@ -74,13 +78,12 @@ export const wailsBridge = {
     return AppGo.SaveSession(id, title, messageCount, timelineJson);
   },
 
+  renameSession: async (id: string, title: string): Promise<void> => {
+    return AppGo.RenameSession(id, title);
+  },
+
   listSessions: async (): Promise<SessionSummary[]> => {
-    try {
-      return ((await AppGo.ListSessions()) || []) as unknown as SessionSummary[];
-    } catch (err) {
-      console.error('Failed to list sessions:', err);
-      return [];
-    }
+    return ((await AppGo.ListSessions()) || []) as unknown as SessionSummary[];
   },
 
   loadSession: async (id: string): Promise<SavedSession> => {

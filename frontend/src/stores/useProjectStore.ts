@@ -35,6 +35,7 @@ interface ProjectState {
   knownProjects: ProjectEntry[];
   setProjectDir: (dir: string) => void;
   selectProject: () => Promise<string>;
+  revealProject: (dir: string) => Promise<void>;
   addProject: (dir: string) => void;
   removeProject: (dir: string) => void;
 }
@@ -78,6 +79,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       get().addProject(dir);
     }
     return dir;
+  },
+
+  revealProject: async (dir: string) => {
+    await wailsBridge.revealProjectDirectory(dir);
   },
 }));
 

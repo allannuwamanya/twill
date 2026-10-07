@@ -3,6 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	goruntime "runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -120,6 +125,39 @@ func (a *App) SetProjectDirectory(dir string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.projectDir = dir
+}
+
+// RevealProjectDirectory opens a project in the platform's file manager.
+func (a *App) RevealProjectDirectory(dir string) error {
+	if dir == "" {
+		return fmt.Errorf("project directory is required")
+	}
+	info, err := os.Stat(dir)
+	if err != nil {
+		return fmt.Errorf("project directory is unavailable: %w", err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("project path is not a directory")
+	}
+
+	dir, err = filepath.Abs(dir)
+	if err != nil {
+		return fmt.Errorf("resolve project directory: %w", err)
+	}
+
+	var command *exec.Cmd
+	switch goruntime.GOOS {
+	case "darwin":
+		command = exec.Command("open", dir)
+	case "windows":
+		command = exec.Command("explorer.exe", dir)
+	default:
+		command = exec.Command("xdg-open", dir)
+	}
+	if err := command.Start(); err != nil {
+		return fmt.Errorf("reveal project directory: %w", err)
+	}
+	return nil
 }
 
 // StartTask dispatches a task to the active agent adapter.
@@ -296,6 +334,28 @@ func (a *App) SaveSession(id string, title string, messageCount int, timelineJSO
 	// The messages themselves live in Timeline; only the count is kept separately
 	// so the history sidebar can render a summary without parsing the timeline.
 	sess.MessageCount = messageCount
+	return a.store.Save(sess)
+}
+
+// RenameSession updates only the user-facing title of a saved session.
+func (a *App) RenameSession(id string, title string) error {
+	if a.store == nil {
+		return fmt.Errorf("session storage unavailable")
+	}
+	title = strings.TrimSpace(title)
+	if id == "" || title == "" {
+		return fmt.Errorf("session id and title are required")
+	}
+	if len([]rune(title)) > 120 {
+		return fmt.Errorf("session title must be 120 characters or fewer")
+	}
+
+	sess, err := a.store.Get(id)
+	if err != nil {
+		return err
+	}
+	sess.Title = title
+	sess.UpdatedAt = time.Now()
 	return a.store.Save(sess)
 }
 

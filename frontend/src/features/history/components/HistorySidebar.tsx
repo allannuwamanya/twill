@@ -6,8 +6,11 @@ import {
   Plus,
   Trash2,
   History,
-  SlidersHorizontal,
   ChevronsUpDown,
+  Search,
+  Pencil,
+  Check,
+  X,
 } from 'lucide-react';
 import { useHistoryStore } from '../../../stores/useHistoryStore';
 import { useSessionStore } from '../../../stores/useSessionStore';
@@ -31,11 +34,15 @@ function compactRelativeTime(iso: string, now: number): string {
 }
 
 export function HistorySidebar() {
-  const { sessions, refresh, remove } = useHistoryStore();
-  const { sessionId, isStreaming, initSession, loadSession, persist } = useSessionStore();
+  const { sessions, loaded, error: historyError, refresh, remove, rename } = useHistoryStore();
+  const { sessionId, isStreaming, initSession, loadSession, persist, stopTask } = useSessionStore();
   const { status } = useAgentStore();
   const { projectDir, knownProjects, selectProject, setProjectDir, removeProject } = useProjectStore();
   const [now, setNow] = useState(() => Date.now());
+  const [query, setQuery] = useState('');
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [renameError, setRenameError] = useState<string | null>(null);
 
   const logoState: TwillLogoState = isStreaming
     ? 'streaming'
@@ -71,7 +78,9 @@ export function HistorySidebar() {
     return () => clearInterval(handle);
   }, []);
 
-  const busy = isStreaming;
+  const busy = isStreaming || status === 'thinking' || status === 'working' || status === 'waiting_for_user';
+  const statusLabel = status === 'waiting_for_user' ? 'Waiting' : status[0].toUpperCase() + status.slice(1);
+  const normalizedQuery = query.trim().toLowerCase();
 
   // Build merged project list from knownProjects + any projectDir in sessions
   const projectList: ProjectEntry[] = useMemo(() => {
@@ -89,21 +98,29 @@ export function HistorySidebar() {
       const name = projectDir.split(/[\\/]/).filter(Boolean).pop() || projectDir;
       map.set(projectDir, name);
     }
-    return Array.from(map.entries()).map(([dir, name]) => ({ dir, name }));
-  }, [knownProjects, sessions, projectDir]);
+    return Array.from(map.entries())
+      .map(([dir, name]) => ({ dir, name }))
+      .filter((project) => !normalizedQuery || `${project.name} ${project.dir}`.toLowerCase().includes(normalizedQuery));
+  }, [knownProjects, sessions, projectDir, normalizedQuery]);
 
   // Group sessions by projectDir
   const sessionsByProject = useMemo(() => {
     const groups = new Map<string, typeof sessions>();
     for (const s of sessions) {
       const dir = s.projectDir || '';
+      if (normalizedQuery && !`${s.title} ${s.projectDir}`.toLowerCase().includes(normalizedQuery)) continue;
       if (!groups.has(dir)) {
         groups.set(dir, []);
       }
       groups.get(dir)!.push(s);
     }
     return groups;
-  }, [sessions]);
+  }, [sessions, normalizedQuery]);
+
+  const confirmInterrupt = () => {
+    if (!busy) return true;
+    return window.confirm('A CLI task is still active. Stop it and switch sessions?');
+  };
 
   const toggleFolder = (dir: string) => {
     setExpandedFolders((prev) => ({
@@ -122,8 +139,9 @@ export function HistorySidebar() {
   };
 
   const openSession = async (id: string, dir: string) => {
-    if (busy || id === sessionId) return;
+    if (id === sessionId || !confirmInterrupt()) return;
     try {
+      if (busy) await stopTask();
       await persist();
       await loadSession(id);
       if (dir && dir !== projectDir) {
@@ -136,8 +154,9 @@ export function HistorySidebar() {
   };
 
   const onNewSession = async () => {
-    if (busy) return;
+    if (!confirmInterrupt()) return;
     try {
+      if (busy) await stopTask();
       await persist();
     } catch (err) {
       console.error('Failed to save current session:', err);
@@ -148,8 +167,9 @@ export function HistorySidebar() {
 
   const onNewSessionInProject = async (e: React.MouseEvent, dir: string) => {
     e.stopPropagation();
-    if (busy) return;
+    if (!confirmInterrupt()) return;
     try {
+      if (busy) await stopTask();
       await persist();
     } catch (err) {
       console.error('Failed to save current session:', err);
@@ -173,6 +193,26 @@ export function HistorySidebar() {
     } catch (err) {
       console.error('Failed to delete session:', err);
       refresh();
+    }
+  };
+
+  const beginRename = (e: React.MouseEvent, id: string, title: string) => {
+    e.stopPropagation();
+    setRenameError(null);
+    setRenamingId(id);
+    setRenameValue(title || 'Untitled session');
+  };
+
+  const submitRename = async (e: React.FormEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const title = renameValue.trim();
+    if (!title) return;
+    try {
+      await rename(id, title);
+      setRenamingId(null);
+    } catch (err) {
+      setRenameError(err instanceof Error ? err.message : String(err));
     }
   };
 
@@ -226,13 +266,16 @@ export function HistorySidebar() {
           Projects
         </span>
         <div className="flex items-center gap-1 text-[#7d7972]">
-          <button
-            onClick={() => {}}
-            title="Filter projects"
-            className="p-1 rounded hover:bg-[#252320] hover:text-[#eeeae4] transition-colors cursor-pointer"
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-          </button>
+          <label className="flex items-center gap-1 rounded-md border border-transparent px-1.5 py-1 focus-within:border-[#383631] focus-within:bg-[#252320]">
+            <Search className="h-3.5 w-3.5 shrink-0" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search"
+              aria-label="Search projects and sessions"
+              className="w-20 bg-transparent text-[11px] text-[#eeeae4] outline-none placeholder:text-[#7d7972]"
+            />
+          </label>
           <button
             onClick={toggleAllFolders}
             title="Toggle all folders"
@@ -252,6 +295,17 @@ export function HistorySidebar() {
 
       {/* Folder & Session Tree */}
       <div className="flex-1 overflow-y-auto px-2.5 py-1 space-y-0.5">
+        {!loaded && sessions.length === 0 && (
+          <div className="px-3 py-6 text-center text-xs text-[#7d7972]" role="status">
+            Loading session history...
+          </div>
+        )}
+        {historyError && (
+          <div className="mx-1 mb-2 rounded-lg border border-[#e5484d]/30 bg-[#28201f] p-2.5 text-xs text-[#ff657a]" role="alert">
+            <p>{historyError}</p>
+            <button type="button" onClick={() => refresh()} className="mt-2 font-semibold text-[#ffc799] hover:underline">Retry</button>
+          </div>
+        )}
         {projectList.length === 0 && (
           <div className="px-3 py-6 text-center text-[#7d7972]">
             <Folder className="w-5 h-5 mx-auto mb-2 opacity-40 text-[#96928a]" />
@@ -348,16 +402,41 @@ export function HistorySidebar() {
                               : 'text-[#96928a] hover:text-[#eeeae4] hover:bg-[#201f1c] border border-transparent font-normal'
                           } ${busy && !active ? 'opacity-60 cursor-not-allowed' : ''}`}
                         >
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <span className="truncate text-sm">
-                              {s.title || 'Untitled session'}
-                            </span>
-                          </div>
+                          {renamingId === s.id ? (
+                            <form className="flex min-w-0 flex-1 items-center gap-1" onSubmit={(e) => submitRename(e, s.id)} onClick={(e) => e.stopPropagation()}>
+                              <input
+                                autoFocus
+                                value={renameValue}
+                                onChange={(e) => setRenameValue(e.target.value)}
+                                aria-label="Session title"
+                                className="min-w-0 flex-1 rounded border border-[#c66b4d]/50 bg-[#181715] px-1.5 py-1 text-xs text-[#eeeae4] outline-none"
+                              />
+                              <button type="submit" title="Save session title" aria-label="Save session title" className="p-1 text-[#99ffe4] hover:bg-[#33312c]"><Check className="h-3.5 w-3.5" /></button>
+                              <button type="button" title="Cancel rename" aria-label="Cancel rename" onClick={() => setRenamingId(null)} className="p-1 text-[#96928a] hover:bg-[#33312c]"><X className="h-3.5 w-3.5" /></button>
+                            </form>
+                          ) : (
+                            <div className="flex min-w-0 flex-1 items-center gap-2">
+                              <span className="truncate text-sm">{s.title || 'Untitled session'}</span>
+                              <span className={`shrink-0 text-[10px] ${active && busy ? 'text-[#ffc799]' : 'text-[#7d7972]'}`}>
+                                {active ? statusLabel : 'Saved'}
+                              </span>
+                            </div>
+                          )}
 
                           <div className="flex items-center gap-1 shrink-0">
                             <span className="text-xs text-[#7d7972] font-mono group-hover:hidden">
                               {compactRelativeTime(s.updatedAt, now)}
                             </span>
+                            {renamingId !== s.id && (
+                              <button
+                                onClick={(e) => beginRename(e, s.id, s.title)}
+                                title="Rename session"
+                                aria-label={`Rename ${s.title || 'session'}`}
+                                className="hidden group-hover:flex p-0.5 rounded text-[#7d7972] hover:text-[#eeeae4] transition-colors"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                             <button
                               onClick={(e) => onDeleteSession(e, s.id)}
                               title="Delete session"
@@ -376,6 +455,8 @@ export function HistorySidebar() {
           );
         })}
       </div>
+
+      {renameError && <p role="alert" className="border-t border-[#e5484d]/30 bg-[#28201f] px-3 py-2 text-[11px] text-[#ff657a]">{renameError}</p>}
 
       <div className="h-3 border-t border-[#282623]" />
     </aside>

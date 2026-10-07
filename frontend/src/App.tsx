@@ -6,6 +6,7 @@ import { ChatInput } from './features/chat/components/ChatInput';
 import { ActivityCard } from './features/activity/components/ActivityCard';
 import { ErrorCard } from './features/activity/components/ErrorCard';
 import { ApprovalDialog } from './features/approvals/components/ApprovalDialog';
+import { ApprovalTimelineCard } from './features/approvals/components/ApprovalTimelineCard';
 import { QuestionPrompt } from './features/approvals/components/QuestionPrompt';
 import { PlanReview } from './features/approvals/components/PlanReview';
 import { DiffReviewCard } from './features/diff/components/DiffReviewCard';
@@ -18,6 +19,8 @@ import { wailsBridge } from './api/wailsBridge';
 import { ArrowDown } from 'lucide-react';
 import { TwillLogo, TwillLogoState } from './components/ui/TwillLogo';
 import { ClaudeSpinner } from './components/ui/ClaudeSpinner';
+import { TaskStatusBar } from './components/ui/TaskStatusBar';
+import { ProjectOnboarding } from './features/projects/components/ProjectOnboarding';
 
 export function App() {
   const {
@@ -128,10 +131,14 @@ export function App() {
         <div className="flex flex-col flex-1 min-w-0 bg-[#1f1e1b] relative">
           {/* Top Workspace Header */}
           <ProjectHeader />
+          <TaskStatusBar />
 
           {/* Main Area: Centered Claude Desktop Empty State vs Timeline */}
           {isEmpty ? (
             <main className="flex-1 flex flex-col items-center justify-center px-6 py-8 overflow-y-auto">
+              {!projectDir ? (
+                <ProjectOnboarding />
+              ) : (
               <div className="w-full max-w-2xl mx-auto flex flex-col items-center text-center -mt-12">
                 {/* Greeting with Twill Knot + Editorial Serif font (Matches Claude Desktop Image 2) */}
                 <div className="flex items-center justify-center gap-3.5 mb-6">
@@ -187,6 +194,7 @@ export function App() {
                   </button>
                 </div>
               </div>
+              )}
             </main>
           ) : (
             <>
@@ -220,6 +228,16 @@ export function App() {
                           question={entry.question}
                           answered={entry.answered}
                           selectedAnswer={entry.selectedAnswer}
+                        />
+                      );
+                    }
+                    if (entry.type === 'approval') {
+                      return (
+                        <ApprovalTimelineCard
+                          key={entry.id}
+                          request={entry.request}
+                          resolved={entry.resolved}
+                          approved={entry.approved}
                         />
                       );
                     }

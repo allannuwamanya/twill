@@ -40,6 +40,12 @@ export const ProjectHeader: React.FC = () => {
           {projectName || 'twill'}
         </button>
 
+        {projectDir && (
+          <span className="hidden xl:inline truncate max-w-sm text-[11px] text-[#7d7972]" title={projectDir}>
+            {projectDir}
+          </span>
+        )}
+
         <span className="text-[#66635c] font-light">/</span>
 
         <span className="text-[#96928a] truncate max-w-lg font-normal text-sm" title={sessionTitle}>

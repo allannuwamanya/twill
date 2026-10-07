@@ -85,6 +85,12 @@ export const FileChangeList: React.FC<FileChangeListProps> = ({
                   )}
                 </div>
 
+                {decision === undefined && !disabled && (
+                  <span className="rounded border border-[#ff9940]/30 px-1 py-0.5 text-[9px] font-sans font-semibold uppercase tracking-wide text-[#ffc799]">
+                    Pending
+                  </span>
+                )}
+
                 {!disabled && (
                   <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
                     <button

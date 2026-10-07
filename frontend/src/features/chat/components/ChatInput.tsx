@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { ArrowRight, Square, ChevronUp, Plus, Loader2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { ArrowRight, Square, ChevronUp, Plus } from 'lucide-react';
 import { useSessionStore } from '../../../stores/useSessionStore';
 import { useProjectStore } from '../../../stores/useProjectStore';
 import { useAgentStore } from '../../../stores/useAgentStore';
@@ -15,9 +15,25 @@ export const ChatInput: React.FC<ChatInputProps> = ({ mode = 'docked' }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { sendPrompt, isStreaming, stopTask } = useSessionStore();
   const { projectDir, selectProject } = useProjectStore();
-  const { status, statusMessage, activeAdapter } = useAgentStore();
+  const { status, statusMessage, activeAdapter, pendingApproval } = useAgentStore();
 
   const isBusy = isStreaming || status === 'working' || status === 'thinking';
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if (pendingApproval) return;
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'l') {
+        event.preventDefault();
+        textareaRef.current?.focus();
+      } else if (event.key === 'Escape' && isBusy) {
+        event.preventDefault();
+        void stopTask();
+      }
+    };
+
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, [isBusy, pendingApproval, stopTask]);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -133,7 +149,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ mode = 'docked' }) => {
               type="button"
               onClick={() => handleSubmit()}
               disabled={!prompt.trim() || isBusy}
-              title="Send message"
+                title="Send message (Enter)"
               className={`w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-xs ${
                 prompt.trim() && !isBusy
                   ? 'bg-[#c66b4d] hover:bg-[#d47859] active:bg-[#b85f42] text-white cursor-pointer'

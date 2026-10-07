@@ -1,4 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@font-face {
+  font-family: "Twill Sans";
+  src: url('./assets/fonts/nunito-v16-latin-regular.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
 
 @tailwind base;
 @tailwind components;
@@ -27,7 +33,7 @@
   --accent-foreground: 36 35% 70%;  /* #d9b98a sand thread accent */
   --destructive: 350 75% 55%;       /* #e5484d failed / error */
 
-  --font-sans: "Google Sans", "Google Sans Text", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+  --font-sans: "Twill Sans", "Google Sans", "Google Sans Text", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", sans-serif;
   --font-mono: "Google Sans Code", "JetBrains Mono", "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }
 
@@ -66,6 +72,14 @@ input, textarea, [contenteditable="true"] {
 
 button {
   cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid #d47859;
+  outline-offset: 2px;
 }
 
 /* Custom warm scrollbars matching Claude Desktop */

@@ -4,10 +4,12 @@ import { useAgentStore } from '../../../stores/useAgentStore';
 import { useSessionStore } from '../../../stores/useSessionStore';
 import { wailsBridge } from '../../../api/wailsBridge';
 import { Button } from '../../../components/ui/Button';
+import { useProjectStore } from '../../../stores/useProjectStore';
 
 export const ApprovalDialog: React.FC = () => {
   const { pendingApproval, setPendingApproval } = useAgentStore();
   const { resolveApproval } = useSessionStore();
+  const projectDir = useProjectStore((state) => state.projectDir);
   const [alwaysAllow, setAlwaysAllow] = useState(false);
   const [copied, setCopied] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -22,14 +24,11 @@ export const ApprovalDialog: React.FC = () => {
       setError(null);
       try {
         await resolveApproval(requestId, approved, alwaysAllow);
-      } catch (err) {
-        // Never leave the modal up on failure: it blocks the whole session and
-        // the user has no way out except a restart.
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setSubmitting(false);
         setPendingApproval(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
       }
+      setSubmitting(false);
     },
     [requestId, submitting, alwaysAllow, resolveApproval, setPendingApproval]
   );
@@ -82,16 +81,16 @@ export const ApprovalDialog: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-[#141414] border border-[#242424] rounded-2xl max-w-lg w-full p-5 shadow-2xl space-y-4 text-xs">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200" role="presentation">
+      <div className="w-full max-w-lg space-y-4 rounded-2xl border border-[#ff9940]/40 bg-[#141414] p-5 text-xs shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="approval-title">
         {/* Header */}
         <div className="flex items-center gap-3 text-[#ff9940]">
           <div className="p-2.5 rounded-xl bg-[#ff9940]/10 border border-[#ff9940]/25">
             <ShieldAlert className="w-5 h-5 text-[#ff9940]" />
           </div>
           <div>
-            <h3 className="font-semibold text-sm text-zinc-100">Action Requires Approval</h3>
-            <p className="text-zinc-500 text-[11px]">The agent requested permission to run an operation</p>
+            <h3 id="approval-title" className="text-sm font-semibold text-zinc-100">Action Requires Approval</h3>
+            <p className="text-[11px] text-zinc-500">The CLI agent is waiting for your decision before it continues.</p>
           </div>
         </div>
 
@@ -115,6 +114,16 @@ export const ApprovalDialog: React.FC = () => {
             {pendingApproval.description}
           </p>
 
+          <div className="grid gap-1 border-t border-[#242424] pt-2 text-[11px]">
+            <div className="flex gap-2"><span className="w-20 shrink-0 text-zinc-600">Project</span><span className="truncate font-mono text-zinc-300" title={projectDir}>{projectDir || 'Unavailable'}</span></div>
+            {typeof pendingApproval.details?.command === 'string' && (
+              <div className="flex gap-2"><span className="w-20 shrink-0 text-zinc-600">Command</span><code className="break-all text-[#ffc799]">{pendingApproval.details.command}</code></div>
+            )}
+            {typeof pendingApproval.details?.file_path === 'string' && (
+              <div className="flex gap-2"><span className="w-20 shrink-0 text-zinc-600">File</span><code className="break-all text-[#ffc799]">{pendingApproval.details.file_path}</code></div>
+            )}
+          </div>
+
           {pendingApproval.details && (
             <pre className="p-2.5 rounded-lg bg-[#0c0c0c] text-zinc-300 font-mono text-[11px] overflow-x-auto select-text border border-[#202020]">
               {JSON.stringify(pendingApproval.details, null, 2)}
@@ -129,8 +138,8 @@ export const ApprovalDialog: React.FC = () => {
         )}
 
         {/* Footer Controls */}
-        <div className="flex items-center justify-between gap-4 pt-1">
-          <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+        <div className="space-y-3 border-t border-[#242424] pt-3">
+          <label className="flex cursor-pointer select-none items-start gap-2 text-xs text-muted-foreground">
             <input
               type="checkbox"
               checked={alwaysAllow}
@@ -138,12 +147,12 @@ export const ApprovalDialog: React.FC = () => {
               onChange={(e) => setAlwaysAllow(e.target.checked)}
               className="rounded border-border text-primary focus:ring-primary/30"
             />
-            <span>Always allow this exact action for this project</span>
+            <span><strong className="text-zinc-300">Always allow this exact action</strong><span className="block text-[11px] text-zinc-600">Only this normalized command or file action in this project.</span></span>
           </label>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-end gap-2">
             <Button
-              variant="outline"
+              variant="danger"
               size="sm"
               disabled={submitting}
               onClick={() => handleDecision(false)}

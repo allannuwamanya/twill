@@ -13,15 +13,11 @@ interface DiffReviewCardProps {
   submitted?: boolean;
 }
 
-// A file with no recorded decision counts as accepted, matching the review UI.
 function decisionsFor(
   files: DiffPayload['files'],
   initial: Record<string, boolean>
 ): Record<string, boolean> {
   const next: Record<string, boolean> = { ...initial };
-  for (const f of files) {
-    if (next[f.filePath] === undefined) next[f.filePath] = true;
-  }
   return next;
 }
 
@@ -57,6 +53,9 @@ export const DiffReviewCard: React.FC<DiffReviewCardProps> = ({
 
   const totalAdditions = diff.files.reduce((acc, f) => acc + (f.additions || 0), 0);
   const totalDeletions = diff.files.reduce((acc, f) => acc + (f.deletions || 0), 0);
+  const decidedCount = diff.files.filter((file) => decisions[file.filePath] !== undefined).length;
+  const rejectedCount = diff.files.filter((file) => decisions[file.filePath] === false).length;
+  const allDecided = decidedCount === diff.files.length;
 
   const handleFileDecision = (path: string, accepted: boolean) => {
     if (submitted) return;
@@ -65,7 +64,11 @@ export const DiffReviewCard: React.FC<DiffReviewCardProps> = ({
 
   const handleAcceptAll = () => {
     if (submitted) return;
-    setDecisions(decisionsFor(diff.files, {}));
+    const next: Record<string, boolean> = {};
+    diff.files.forEach((file) => {
+      next[file.filePath] = true;
+    });
+    setDecisions(next);
   };
 
   const handleRejectAll = () => {
@@ -80,9 +83,7 @@ export const DiffReviewCard: React.FC<DiffReviewCardProps> = ({
   const handleSubmit = async () => {
     if (submitted) return;
     try {
-      // Send a decision for every file; an absent key would be ignored by the
-      // backend and read as "no decision made" rather than "accepted".
-      await submitDiffReview(diff.diffId, decisionsFor(diff.files, decisions));
+      await submitDiffReview(diff.diffId, decisions);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -101,6 +102,7 @@ export const DiffReviewCard: React.FC<DiffReviewCardProps> = ({
               <span className="text-xs font-semibold text-zinc-100">Code Changes</span>
               <span className="text-[11px] font-mono text-emerald-400">+{totalAdditions}</span>
               <span className="text-[11px] font-mono text-[#ff657a]">-{totalDeletions}</span>
+              <Badge variant={allDecided ? 'success' : 'warning'}>{decidedCount}/{diff.files.length} reviewed</Badge>
             </div>
             <p className="text-[11px] text-zinc-500">
               Review and accept or reject changes per file
@@ -156,6 +158,7 @@ export const DiffReviewCard: React.FC<DiffReviewCardProps> = ({
                 variant="primary"
                 size="sm"
                 onClick={handleSubmit}
+                disabled={!allDecided}
                 className="gap-1.5 text-xs px-3 py-1 shadow-xs"
               >
                 <Send className="w-3 h-3" />
@@ -193,6 +196,11 @@ export const DiffReviewCard: React.FC<DiffReviewCardProps> = ({
       {error && (
         <p role="alert" className="px-3.5 py-2 text-xs text-destructive border-t border-border/70">
           Could not submit the review: {error}
+        </p>
+      )}
+      {submitted && rejectedCount > 0 && (
+        <p className="border-t border-[#ff9940]/20 bg-[#2b241d] px-3.5 py-2 text-xs text-[#ffc799]">
+          {rejectedCount} rejected {rejectedCount === 1 ? 'file was' : 'files were'} reported to the CLI agent for reversal.
         </p>
       )}
     </div>

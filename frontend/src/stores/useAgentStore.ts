@@ -15,6 +15,8 @@ interface AgentState {
   statusMessage: string;
   activeAdapter: string;
   pendingApproval: PermissionRequestPayload | null;
+  taskStartedAt: number | null;
+  taskFinishedAt: number | null;
 
   // Actions
   setStatus: (status: AgentStatus, message?: string) => void;
@@ -28,6 +30,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   statusMessage: 'Ready',
   activeAdapter: 'claude',
   pendingApproval: null,
+  taskStartedAt: null,
+  taskFinishedAt: null,
 
   setStatus: (status, message = '') =>
     set({ status, statusMessage: message }),
@@ -40,9 +44,14 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     switch (event.type) {
       case 'status_change': {
         const payload = event.payload as StatusPayload;
+        const isActive = payload.status === 'thinking' || payload.status === 'working' || payload.status === 'waiting_for_user';
+        const isTerminal = payload.status === 'done' || payload.status === 'failed' || payload.status === 'terminated';
+        const now = Date.now();
         set({
           status: payload.status,
           statusMessage: payload.message ?? '',
+          taskStartedAt: isActive ? get().taskStartedAt ?? now : get().taskStartedAt,
+          taskFinishedAt: isTerminal ? now : null,
           // Any status other than waiting means the agent has moved on (answered,
           // stopped, or failed); leaving the prompt up over a dead request would
           // block the session.
@@ -70,5 +79,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       status: 'idle',
       statusMessage: 'Ready',
       pendingApproval: null,
+      taskStartedAt: null,
+      taskFinishedAt: null,
     }),
 }));

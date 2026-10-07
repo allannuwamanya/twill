@@ -34,6 +34,14 @@ export function LoadSession(arg1) {
   return window['go']['main']['App']['LoadSession'](arg1);
 }
 
+export function RenameSession(arg1, arg2) {
+  return window['go']['main']['App']['RenameSession'](arg1, arg2);
+}
+
+export function RevealProjectDirectory(arg1) {
+  return window['go']['main']['App']['RevealProjectDirectory'](arg1);
+}
+
 export function SaveSession(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['SaveSession'](arg1, arg2, arg3, arg4);
 }
